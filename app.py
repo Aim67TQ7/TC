@@ -34,12 +34,22 @@ def main():
                     st.error("Failed to analyze document. Please try again.")
                     return
 
-                # Count items by risk level (excluding metrics key)
+                # Show document metadata if available
+                if 'metadata' in analysis_results:
+                    metadata = analysis_results['metadata']
+                    if metadata.get('required_translation'):
+                        st.warning("⚠️ Document is not in English. Analysis includes translation, which may affect accuracy.")
+
+                    # Show document stats
+                    doc_length = metadata.get('length', 0)
+                    st.info(f"📄 Document Length: {doc_length:,} characters")
+
+                # Count items by risk level (excluding metrics and metadata keys)
                 risk_counts = {
                     "High": sum(1 for k, r in analysis_results.items() 
-                              if k != 'metrics' and isinstance(r, dict) and r.get('risk_level') == "High"),
+                              if k not in ['metrics', 'metadata'] and isinstance(r, dict) and r.get('risk_level') == "High"),
                     "Medium": sum(1 for k, r in analysis_results.items() 
-                                if k != 'metrics' and isinstance(r, dict) and r.get('risk_level') == "Medium")
+                                if k not in ['metrics', 'metadata'] and isinstance(r, dict) and r.get('risk_level') == "Medium")
                 }
 
                 # Generate summary message
