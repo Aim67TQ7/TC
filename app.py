@@ -57,14 +57,29 @@ def preprocess_document(text: str) -> tuple[str, dict]:
             progress_bar = st.progress(0)
             total_paragraphs = len(paragraphs)
 
+            # Track which sections are being translated
+            translated_sections = []
+
             for i, para in enumerate(paragraphs):
                 if len(para.strip()) > 20:  # Only translate substantial paragraphs
                     try:
-                        lang = language_analysis['sections_requiring_translation'][i]['language'] if i < len(language_analysis['sections_requiring_translation']) else 'en'
-                        if lang != 'en':
-                            translated_para = translate_text(para, lang)
-                            translated_paragraphs.append(translated_para)
-                        else:
+                        # Check if this paragraph needs translation
+                        needs_translation = False
+                        for section in language_analysis['sections_requiring_translation']:
+                            if section['index'] == i:
+                                needs_translation = True
+                                translated_para = translate_text(para, section['language'])
+                                translated_paragraphs.append(translated_para)
+                                translated_sections.append({
+                                    'index': i,
+                                    'original': para,
+                                    'translated': translated_para,
+                                    'language': section['language']
+                                })
+                                break
+
+                        if not needs_translation:
+                            # Keep original paragraph if it's already in English
                             translated_paragraphs.append(para)
                     except:
                         translated_paragraphs.append(para)
@@ -74,13 +89,27 @@ def preprocess_document(text: str) -> tuple[str, dict]:
                 # Update progress bar
                 progress_bar.progress((i + 1) / total_paragraphs)
 
+            # Combine paragraphs maintaining document structure
             text = '\n\n'.join(translated_paragraphs)
             st.success("✅ Mixed language content has been translated to English")
 
+            # Store translation info in metadata
+            metadata['translation_details'] = {
+                'translated_sections': translated_sections,
+                'translation_type': 'partial'
+            }
+
         else:
             st.warning(f"⚠️ Document appears to be in {language_analysis['primary_language']}. Translating to English...")
+            original_text = text
             text = translate_text(text, language_analysis['primary_language'])
             st.success("✅ Document has been translated to English")
+
+            # Store translation info in metadata
+            metadata['translation_details'] = {
+                'original_text': original_text,
+                'translation_type': 'full'
+            }
 
         metadata['translation_status'] = 'completed'
 

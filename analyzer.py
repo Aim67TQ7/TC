@@ -77,6 +77,12 @@ def analyze_document(text: str) -> Dict[str, Any]:
     else:
         results = analyze_chunk(text)
 
+    # Add information about document composition
+    results['document_info'] = {
+        'length': len(text),
+        'chunks': len(chunks) if is_long_document else 1,
+    }
+
     return results
 
 def chunk_document(text: str, chunk_size: int = 8000) -> List[str]:
