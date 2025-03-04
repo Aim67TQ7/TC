@@ -39,14 +39,14 @@ def main():
                 if risk_counts["High"] == 0 and risk_counts["Medium"] == 0:
                     st.markdown("""
                         <div class="summary-box">
-                        ✅ I reviewed the document and found no significant concerns that pose risk.
+                        ✅ I reviewed the document and found no unusual terms or special requirements that deviate from standard T&Cs.
                         </div>
                     """, unsafe_allow_html=True)
                 else:
                     summary = f"""
                         <div class="summary-box">
-                        ⚠️ I found {risk_counts["Medium"]} item{"s" if risk_counts["Medium"] != 1 else ""} that should be reviewed
-                        {f' and {risk_counts["High"]} item{"s" if risk_counts["High"] != 1 else ""} that need{"s" if risk_counts["High"] == 1 else ""} to be thoroughly investigated' if risk_counts["High"] > 0 else ''}.
+                        ⚠️ I found {risk_counts["Medium"]} item{"s" if risk_counts["Medium"] != 1 else ""} with specific requirements to review
+                        {f' and {risk_counts["High"]} unusual term{"s" if risk_counts["High"] != 1 else ""} that significantly deviate{"s" if risk_counts["High"] == 1 else ""} from standard T&Cs' if risk_counts["High"] > 0 else ''}.
                         </div>
                     """
                     st.markdown(summary, unsafe_allow_html=True)
@@ -74,8 +74,8 @@ def main():
                                 st.write(result['findings'])
 
                                 risk_explanations = {
-                                    "High": "⚠️ Requires immediate attention and review",
-                                    "Medium": "⚠️ Should be reviewed for potential issues"
+                                    "High": "⚠️ Contains unusual terms or significant deviations from standard T&Cs",
+                                    "Medium": "⚠️ Contains specific requirements or conditions to review"
                                 }
                                 st.markdown(f"**Risk Level:** {result['risk_level']} - {risk_explanations[result['risk_level']]}")
 
