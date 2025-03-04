@@ -29,10 +29,17 @@ def main():
                 # Perform analysis
                 analysis_results = analyze_document(document_text)
 
-                # Count items by risk level
+                # Validate analysis results
+                if not analysis_results or not isinstance(analysis_results, dict):
+                    st.error("Failed to analyze document. Please try again.")
+                    return
+
+                # Count items by risk level (excluding metrics key)
                 risk_counts = {
-                    "High": sum(1 for r in analysis_results.values() if r['risk_level'] == "High"),
-                    "Medium": sum(1 for r in analysis_results.values() if r['risk_level'] == "Medium")
+                    "High": sum(1 for k, r in analysis_results.items() 
+                              if k != 'metrics' and isinstance(r, dict) and r.get('risk_level') == "High"),
+                    "Medium": sum(1 for k, r in analysis_results.items() 
+                                if k != 'metrics' and isinstance(r, dict) and r.get('risk_level') == "Medium")
                 }
 
                 # Generate summary message
@@ -62,7 +69,9 @@ def main():
                 for section_name, categories in sections.items():
                     # Filter categories with medium or high risk in this section
                     risky_categories = [cat for cat in categories 
-                                      if analysis_results[cat]['risk_level'] in ["High", "Medium"]]
+                                      if cat in analysis_results and 
+                                      isinstance(analysis_results[cat], dict) and
+                                      analysis_results[cat].get('risk_level') in ["High", "Medium"]]
 
                     if risky_categories:  # Only show section if it has items of concern
                         st.markdown(f"### {section_name}")
@@ -74,7 +83,7 @@ def main():
                                 st.write(result['findings'])
 
                                 # Display quoted phrases if they exist
-                                if result['quoted_phrases']:
+                                if result.get('quoted_phrases'):
                                     st.markdown("**Unusual Terms Found:**")
                                     for phrase in result['quoted_phrases']:
                                         # Color code based on type (red for financial, yellow for unusual)
