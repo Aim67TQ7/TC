@@ -5,6 +5,49 @@ import re
 from typing import Dict, List, Any
 import langdetect
 
+def detect_language_sections(text: str) -> Dict[str, Any]:
+    """Analyze different sections of the document for language detection."""
+    # Split into paragraphs for granular analysis
+    paragraphs = text.split('\n\n')
+    sections_analysis = {
+        'primary_language': 'en',
+        'has_mixed_content': False,
+        'sections_requiring_translation': [],
+        'translation_confidence': 1.0
+    }
+
+    try:
+        # Detect primary language from full text
+        sections_analysis['primary_language'] = langdetect.detect(text)
+
+        # Analyze individual paragraphs
+        non_english_sections = []
+        paragraph_languages = set()
+
+        for i, para in enumerate(paragraphs):
+            if len(para.strip()) > 50:  # Only check substantial paragraphs
+                try:
+                    lang = langdetect.detect(para)
+                    paragraph_languages.add(lang)
+                    if lang != 'en':
+                        non_english_sections.append({
+                            'index': i,
+                            'language': lang,
+                            'preview': para[:100] + '...' if len(para) > 100 else para
+                        })
+                except:
+                    continue
+
+        sections_analysis['has_mixed_content'] = len(paragraph_languages) > 1
+        sections_analysis['sections_requiring_translation'] = non_english_sections
+        sections_analysis['translation_confidence'] = 1.0 if len(paragraph_languages) == 1 else 0.8
+
+    except Exception as e:
+        st.error(f"Error in language detection: {str(e)}")
+        sections_analysis['translation_confidence'] = 0.5
+
+    return sections_analysis
+
 def detect_language(text: str) -> str:
     """Detect the language of the document."""
     try:
@@ -32,26 +75,44 @@ def chunk_document(text: str, chunk_size: int = 8000) -> List[str]:
     return chunks
 
 def analyze_document(text: str) -> Dict[str, Any]:
-    # Check document length and language
-    is_long_document = len(text) > 8000
-    detected_lang = detect_language(text)
-    requires_translation = detected_lang != 'en'
+    # Perform language analysis first
+    language_analysis = detect_language_sections(text)
+    requires_translation = language_analysis['primary_language'] != 'en' or language_analysis['has_mixed_content']
 
     if requires_translation:
-        st.warning("⚠️ Document appears to be in a non-English language. Translation will be performed, which may require additional processing time for thorough analysis.")
+        message = "⚠️ "
+        if language_analysis['has_mixed_content']:
+            message += "Document contains mixed language content. "
+        else:
+            message += f"Document appears to be in {language_analysis['primary_language']}. "
+        message += "Translation will be performed, which may require additional processing time."
+        st.warning(message)
 
+        if language_analysis['sections_requiring_translation']:
+            st.info("📝 Specific sections requiring translation have been identified and will be processed accordingly.")
+
+    # Continue with existing length check and chunking
+    is_long_document = len(text) > 8000
     if is_long_document:
         st.info("📄 Document is lengthy and will be processed in chunks for optimal analysis. This may take a few moments.")
         chunks = chunk_document(text)
-        # Process chunks and merge results
         all_results = []
         for i, chunk in enumerate(chunks, 1):
             st.write(f"Processing chunk {i} of {len(chunks)}...")
             chunk_results = analyze_chunk(chunk)
             all_results.append(chunk_results)
-        return merge_analysis_results(all_results)
+        results = merge_analysis_results(all_results)
     else:
-        return analyze_chunk(text)
+        results = analyze_chunk(text)
+
+    # Add language analysis to metadata
+    results['metadata'] = {
+        'length': len(text),
+        'language_analysis': language_analysis,
+        'required_translation': requires_translation
+    }
+
+    return results
 
 def analyze_chunk(text: str) -> Dict[str, Any]:
     client = anthropic.Anthropic(api_key=os.getenv('ANTHROPIC_API_KEY'))
