@@ -80,10 +80,15 @@ def chunk_document(text: str, chunk_size: int = 6500) -> List[str]:
     if current_chunk:
         chunks.append('\n\n'.join(current_chunk))
 
+    # Ensure we have at least one chunk
+    if not chunks:
+        chunks = [text]
+
     return chunks
 
 def analyze_document(text: str) -> Dict[str, Any]:
     """Analyze the document, chunking if necessary."""
+    # Chunk the document regardless of size to ensure consistent analysis
     chunks = chunk_document(text)
     chunk_sizes = [len(chunk) for chunk in chunks]
     avg_chunk_size = sum(chunk_sizes) / len(chunks)
