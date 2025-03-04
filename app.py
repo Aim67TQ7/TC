@@ -73,6 +73,12 @@ def main():
                                 st.markdown("**Findings:**")
                                 st.write(result['findings'])
 
+                                # Display quoted phrases if they exist
+                                if result['quoted_phrases']:
+                                    st.markdown("**Unusual Terms Found:**")
+                                    for phrase in result['quoted_phrases']:
+                                        st.markdown(f"• _{phrase}_")
+
                                 risk_explanations = {
                                     "High": "⚠️ Contains unusual terms or significant deviations from standard T&Cs",
                                     "Medium": "⚠️ Contains specific requirements or conditions to review"
