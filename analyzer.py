@@ -2,6 +2,7 @@ import anthropic
 import os
 import streamlit as st
 import re
+from typing import Dict, List, Any
 
 ANALYSIS_CATEGORIES = [
     "Introduction and Overview",
@@ -38,7 +39,7 @@ ANALYSIS_CATEGORIES = [
     "Failed Delivery Handling"
 ]
 
-def is_financial_term(phrase):
+def is_financial_term(phrase: str) -> bool:
     financial_keywords = [
         'fee', 'cost', 'price', 'payment', 'charge', 'refund', 'credit',
         'billing', 'subscription', 'money', 'financial', 'dollar', 'rate',
@@ -46,7 +47,22 @@ def is_financial_term(phrase):
     ]
     return any(keyword in phrase.lower() for keyword in financial_keywords)
 
-def analyze_document(text):
+def calculate_metrics(analysis_results: Dict[str, Any]) -> Dict[str, float]:
+    """Calculate various metrics based on the analysis results."""
+    total_categories = len(ANALYSIS_CATEGORIES)
+    risky_categories = sum(1 for r in analysis_results.values() if r['risk_level'] in ['High', 'Medium'])
+    financial_terms = sum(1 for r in analysis_results.values() 
+                         for q in r['quoted_phrases'] if q['is_financial'])
+    unusual_terms = sum(1 for r in analysis_results.values() 
+                       for q in r['quoted_phrases'] if not q['is_financial'])
+
+    return {
+        'complexity_score': (risky_categories / total_categories) * 100,
+        'financial_impact': (financial_terms / max(1, financial_terms + unusual_terms)) * 100,
+        'unusual_terms_ratio': (unusual_terms / max(1, len(analysis_results))) * 100
+    }
+
+def analyze_document(text: str) -> Dict[str, Any]:
     client = anthropic.Anthropic(api_key=os.getenv('ANTHROPIC_API_KEY'))
 
     prompt = f"""
@@ -81,26 +97,31 @@ def analyze_document(text):
     """
 
     try:
-        # Debug: Print prompt
-        st.write("Debug - Analyzing document...")
+        # Debug: Print prompt length
+        st.write("Debug - Document length:", len(text))
+        st.write("Debug - Starting analysis...")
 
-        # Make API call
-        response = client.messages.create(
-            model="claude-3-5-sonnet-20241022",
-            max_tokens=1500,
-            temperature=0,
-            messages=[{"role": "user", "content": prompt}]
-        )
+        # Make API call with error handling
+        try:
+            response = client.messages.create(
+                model="claude-3-5-sonnet-20241022",
+                max_tokens=1500,
+                temperature=0,
+                messages=[{"role": "user", "content": prompt}]
+            )
+        except Exception as api_error:
+            st.error(f"API call failed: {str(api_error)}")
+            return {cat: {'risk_level': 'Error', 'findings': 'API call failed', 'quoted_phrases': []} for cat in ANALYSIS_CATEGORIES}
 
         # Safely get content
-        if not response or not response.content:
-            st.error("No response received from Claude")
-            return {cat: {'risk_level': 'Error', 'findings': 'Analysis failed', 'quoted_phrases': []} for cat in ANALYSIS_CATEGORIES}
+        if not response or not hasattr(response, 'content') or not response.content:
+            st.error("Invalid response structure from Claude")
+            return {cat: {'risk_level': 'Error', 'findings': 'Invalid response', 'quoted_phrases': []} for cat in ANALYSIS_CATEGORIES}
 
         content = response.content[0].text if response.content else ""
 
         # Debug logging
-        st.write("Debug - Raw Claude Response:", content[:500] + "...")
+        st.write("Debug - Got response, length:", len(content))
 
         analysis_results = {}
 
@@ -123,17 +144,15 @@ def analyze_document(text):
                     # Process quotes
                     quoted_phrases = []
                     if quotes_match:
-                        # Split by newlines and extract quoted text
                         quotes_text = quotes_match.group(1).strip()
+                        # Extract quotes and process them
                         quotes = re.findall(r'"([^"]*)"', quotes_text)
-
-                        # Process each quote to identify financial terms
                         quoted_phrases = [
                             {'text': quote.strip(), 'is_financial': is_financial_term(quote)}
-                            for quote in quotes
+                            for quote in quotes if quote.strip()
                         ]
 
-                    # Determine risk level
+                    # Determine risk level based on content analysis
                     risk_level = (
                         risk_match.group(1) if risk_match else
                         "High" if any(q['is_financial'] for q in quoted_phrases) else
@@ -160,6 +179,10 @@ def analyze_document(text):
                     'findings': f'Error analyzing section: {str(section_error)}',
                     'quoted_phrases': []
                 }
+
+        # Calculate metrics
+        metrics = calculate_metrics(analysis_results)
+        analysis_results['metrics'] = metrics
 
         return analysis_results
 
