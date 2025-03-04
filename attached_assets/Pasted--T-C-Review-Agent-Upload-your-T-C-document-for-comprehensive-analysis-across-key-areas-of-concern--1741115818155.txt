@@ -1,0 +1,27 @@
+
+T&C Review Agent
+Upload your T&C document for comprehensive analysis across key areas of concern.
+
+📋 What We Review
+
+Our agent analyzes Terms & Conditions documents across these key areas:
+
+Core Terms:
+
+Introduction and Overview: Purpose, scope, and acceptance methods
+User Rights and Responsibilities: Usage rights, restrictions, and account obligations
+Privacy Policy and Data Usage: Data collection, sharing, and protection practices
+Payment Terms: Pricing, refunds, and payment processing details
+Intellectual Property Rights: Content ownership and usage rights
+Limitation of Liability: Company's liability scope and warranty disclaimers
+Termination and Suspension: Account termination conditions and processes
+Dispute Resolution: Conflict resolution methods and jurisdiction
+Amendments and Updates: Terms modification processes and notification methods
+Governing Law: Applicable legal jurisdiction and frameworks
+Force Majeure: Provisions for unforeseeable circumstances
+Severability: Impact of invalid terms on overall agreement
+User Consent for Marketing: Marketing communications and opt-out rights
+Specific Rights for Certain Regions: Region-specific legal requirements
+Quality & Compliance: 15. Quality Assurance and Performance: Service level agreements and quality standards 16. Audits and Monitoring: Audit rights and compliance monitoring 17. Regulatory Compliance: Industry-specific regulatory requirements 18. Product Safety Certifications: Safety standards and regulatory approvals 19. Liability for Regulatory Breaches: Consequences of regulatory non-compliance 20. Third-Party Audits: External auditing and certification requirements 21. International Standards Compliance: Global regulatory framework adherence 22. Regulatory Violation Recourse: Consumer rights and remedies
+
+Delivery & Fulfillment: 23. Delivery Process and Timeframes: Estimated delivery times and guarantees 24. Delivery Costs: Shipping fees, handling charges, and payment terms 25. Delivery Risk and Responsibility: Transfer of risk and ownership during shipping 26. Delayed or Failed Deliveries: Handling of delays and delivery failures 27. Delivery Location and Restrictions: Geographic limitations and address requirements 28. International Delivery: Cross-border shipping terms and customs handling 29. Returns and Delivery Failures: Return shipping policies and procedures 30. Acceptance of Delivery: Inspection requirements and signature protocols 31. Subscription Services Delivery: Recurring delivery terms and modifications 32. Failed Delivery Handling: Unclaimed package policies and resolution
