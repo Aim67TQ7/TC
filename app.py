@@ -8,23 +8,26 @@ from styles import apply_custom_styles, show_risk_indicator
 def display_language_analysis(metadata):
     """Display language analysis information."""
     language_analysis = metadata.get('language_analysis', {})
+    translation_status = metadata.get('translation_status', 'not_needed')
 
     if language_analysis.get('has_mixed_content'):
-        st.warning("⚠️ Document contains mixed language content which may affect analysis accuracy.")
+        if translation_status == 'completed':
+            st.success("✅ Mixed language content has been translated to English for analysis")
 
-        # Show sections requiring translation
+        # Show original sections that required translation
         non_english = language_analysis.get('sections_requiring_translation', [])
         if non_english:
-            with st.expander("View sections requiring translation"):
+            with st.expander("View original non-English sections"):
                 for section in non_english:
                     st.markdown(f"""
-                        **Language detected**: {section['language']}
+                        **Original Language**: {section['language']}
                         ```
                         {section['preview']}
                         ```
                         """)
     elif metadata.get('required_translation'):
-        st.warning(f"⚠️ Document is primarily in {language_analysis.get('primary_language', 'non-English')}. Analysis includes translation.")
+        if translation_status == 'completed':
+            st.success(f"✅ Document has been translated from {language_analysis.get('primary_language', 'non-English')} to English")
 
     confidence = language_analysis.get('translation_confidence', 1.0)
     if confidence < 1.0:
@@ -37,7 +40,7 @@ def main():
     st.markdown("Upload your T&C document for comprehensive analysis across key areas of concern.")
 
     uploaded_file = st.file_uploader(
-        "Upload your document (PDF, DOCX, or TXT)", 
+        "Upload your document (PDF, DOCX, or TXT) - Supports multiple languages", 
         type=["pdf", "docx", "txt"]
     )
 

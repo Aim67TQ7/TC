@@ -5,6 +5,33 @@ import re
 from typing import Dict, List, Any
 import langdetect
 
+def translate_text(text: str, source_lang: str) -> str:
+    """Translate text to English using Claude."""
+    client = anthropic.Anthropic(api_key=os.getenv('ANTHROPIC_API_KEY'))
+
+    prompt = f"""
+    Translate the following text from {source_lang} to English, maintaining the original formatting and structure.
+    Preserve any technical terms, numbers, and special characters.
+
+    Text to translate:
+    {text}
+
+    Provide only the translated text in your response, without any additional commentary.
+    """
+
+    try:
+        response = client.messages.create(
+            model="claude-3-5-sonnet-20241022",
+            max_tokens=1500,
+            temperature=0,
+            messages=[{"role": "user", "content": prompt}]
+        )
+
+        return response.content[0].text if response.content else text
+    except Exception as e:
+        st.error(f"Translation error: {str(e)}")
+        return text
+
 def detect_language_sections(text: str) -> Dict[str, Any]:
     """Analyze different sections of the document for language detection."""
     # Split into paragraphs for granular analysis
@@ -83,13 +110,34 @@ def analyze_document(text: str) -> Dict[str, Any]:
         message = "⚠️ "
         if language_analysis['has_mixed_content']:
             message += "Document contains mixed language content. "
+            # Handle mixed content by translating non-English sections
+            paragraphs = text.split('\n\n')
+            translated_paragraphs = []
+            for i, para in enumerate(paragraphs):
+                if len(para.strip()) > 50:  # Only translate substantial paragraphs
+                    try:
+                        lang = langdetect.detect(para)
+                        if lang != 'en':
+                            st.info(f"Translating section {i+1}...")
+                            translated_para = translate_text(para, lang)
+                            translated_paragraphs.append(translated_para)
+                        else:
+                            translated_paragraphs.append(para)
+                    except:
+                        translated_paragraphs.append(para)
+                else:
+                    translated_paragraphs.append(para)
+            text = '\n\n'.join(translated_paragraphs)
+            message += "Mixed language content has been translated to English."
         else:
-            message += f"Document appears to be in {language_analysis['primary_language']}. "
-        message += "Translation will be performed, which may require additional processing time."
-        st.warning(message)
+            # Translate entire document
+            source_lang = language_analysis['primary_language']
+            message += f"Document appears to be in {source_lang}. "
+            st.info("Translating document to English...")
+            text = translate_text(text, source_lang)
+            message += "Document has been translated to English."
 
-        if language_analysis['sections_requiring_translation']:
-            st.info("📝 Specific sections requiring translation have been identified and will be processed accordingly.")
+        st.warning(message)
 
     # Continue with existing length check and chunking
     is_long_document = len(text) > 8000
@@ -105,11 +153,12 @@ def analyze_document(text: str) -> Dict[str, Any]:
     else:
         results = analyze_chunk(text)
 
-    # Add language analysis to metadata
+    # Add language analysis and translation info to metadata
     results['metadata'] = {
         'length': len(text),
         'language_analysis': language_analysis,
-        'required_translation': requires_translation
+        'required_translation': requires_translation,
+        'translation_status': 'completed' if requires_translation else 'not_needed'
     }
 
     return results
