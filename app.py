@@ -77,10 +77,16 @@ def main():
                                 if result['quoted_phrases']:
                                     st.markdown("**Unusual Terms Found:**")
                                     for phrase in result['quoted_phrases']:
-                                        st.markdown(f"• _{phrase}_")
+                                        # Color code based on type (red for financial, yellow for unusual)
+                                        color = "#FF4B4B" if phrase['is_financial'] else "#FFA500"
+                                        st.markdown(f"""
+                                            <div style='color: {color}; margin-left: 20px;'>
+                                            • {phrase['text']}
+                                            </div>
+                                        """, unsafe_allow_html=True)
 
                                 risk_explanations = {
-                                    "High": "⚠️ Contains unusual terms or significant deviations from standard T&Cs",
+                                    "High": "⚠️ Contains terms with significant financial impact or unusual requirements",
                                     "Medium": "⚠️ Contains specific requirements or conditions to review"
                                 }
                                 st.markdown(f"**Risk Level:** {result['risk_level']} - {risk_explanations[result['risk_level']]}")
