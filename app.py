@@ -118,6 +118,26 @@ def preprocess_document(text: str) -> tuple[str, dict]:
     st.success("✅ Translation completed")
     st.info(f"📄 Final document length: {len(processed_text):,} characters")
 
+    # Display complete document text
+    st.markdown("### Complete Document Text")
+    st.markdown("Review the full document text below. Please verify the content before proceeding with analysis.")
+
+    if metadata['translation_status'] == 'completed':
+        with st.expander("View Complete Translated Document", expanded=True):
+            st.text_area("Complete Document Text", processed_text, height=400)
+
+        if metadata['translation_details']['translation_type'] == 'partial':
+            with st.expander("View Translation Details"):
+                for section in metadata['translation_details']['translated_sections']:
+                    st.markdown(f"**Original Text ({section['language']}):**")
+                    st.text(section['original'])
+                    st.markdown("**Translated Text:**")
+                    st.text(section['translated'])
+                    st.markdown("---")
+    else:
+        with st.expander("View Complete Document", expanded=True):
+            st.text_area("Complete Document Text", processed_text, height=400)
+
     return processed_text, metadata
 
 def analyze_and_display_results(processed_text: str, metadata: dict):
@@ -255,10 +275,6 @@ def main():
                 # Store processed content in session state
                 st.session_state['processed_text'] = processed_text
                 st.session_state['metadata'] = metadata
-
-                # Show translated preview
-                with st.expander("Translated Document Preview"):
-                    st.text_area("Translated Text", processed_text[:1000] + "...", height=200)
 
                 st.success("✅ Translation completed! Click 'Analyze Document' to proceed.")
         else:
