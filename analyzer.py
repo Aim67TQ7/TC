@@ -15,7 +15,15 @@ ANALYSIS_CATEGORIES = [
     "Force Majeure",
     "Severability",
     "User Consent for Marketing",
-    "Specific Rights for Certain Regions"
+    "Specific Rights for Certain Regions",
+    "Quality Assurance and Performance",
+    "Audits and Monitoring",
+    "Regulatory Compliance",
+    "Product Safety Certifications",
+    "Liability for Regulatory Breaches",
+    "Third-Party Audits",
+    "International Standards Compliance",
+    "Regulatory Violation Recourse"
 ]
 
 def analyze_document(text):
@@ -34,6 +42,12 @@ def analyze_document(text):
     Please analyze for these categories:
     {', '.join(ANALYSIS_CATEGORIES)}
 
+    For each category, consider:
+    - Clarity and completeness of terms
+    - Potential risks to users
+    - Compliance with standard practices
+    - Fairness and reasonableness
+
     Format the response as a Python dictionary with categories as keys and values as dictionaries containing 'risk_level' and 'findings'.
     """
 
@@ -48,12 +62,9 @@ def analyze_document(text):
 
     try:
         content = response.content[0].text
-        # Parse the response into a proper dictionary structure
         analysis_results = {}
         for category in ANALYSIS_CATEGORIES:
-            # Extract relevant information from Claude's response
             if category.lower() in content.lower():
-                # Simple parsing logic - can be improved
                 if "high risk" in content.lower():
                     risk_level = "High"
                 elif "medium risk" in content.lower():

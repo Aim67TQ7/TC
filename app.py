@@ -14,8 +14,9 @@ def main():
     # Add explanation of analysis categories
     with st.expander("📋 What We Review"):
         st.markdown("""
-        Our agent analyzes Terms & Conditions documents across these 14 key areas:
+        Our agent analyzes Terms & Conditions documents across these key areas:
 
+        Core Terms:
         1. **Introduction and Overview**: Purpose, scope, and acceptance methods
         2. **User Rights and Responsibilities**: Usage rights, restrictions, and account obligations
         3. **Privacy Policy and Data Usage**: Data collection, sharing, and protection practices
@@ -30,6 +31,16 @@ def main():
         12. **Severability**: Impact of invalid terms on overall agreement
         13. **User Consent for Marketing**: Marketing communications and opt-out rights
         14. **Specific Rights for Certain Regions**: Region-specific legal requirements
+
+        Quality & Compliance:
+        15. **Quality Assurance and Performance**: Service level agreements and quality standards
+        16. **Audits and Monitoring**: Audit rights and compliance monitoring
+        17. **Regulatory Compliance**: Industry-specific regulatory requirements
+        18. **Product Safety Certifications**: Safety standards and regulatory approvals
+        19. **Liability for Regulatory Breaches**: Consequences of regulatory non-compliance
+        20. **Third-Party Audits**: External auditing and certification requirements
+        21. **International Standards Compliance**: Global regulatory framework adherence
+        22. **Regulatory Violation Recourse**: Consumer rights and remedies
         """)
 
     uploaded_file = st.file_uploader(
