@@ -102,14 +102,19 @@ def main():
         with st.spinner("Extracting text from document..."):
             document_text = extract_text_from_file(uploaded_file)
 
-        # Show document preview
-        with st.expander("Document Preview"):
+        # Show document preview before translation
+        with st.expander("Original Document Preview"):
             st.text_area("", document_text[:1000] + "...", height=200)
 
         if st.button("Analyze Document"):
             # First preprocess the document (including translation if needed)
             with st.spinner("Preprocessing document..."):
                 processed_text, metadata = preprocess_document(document_text)
+
+                # Show translated preview if translation occurred
+                if metadata.get('translation_status') == 'completed':
+                    with st.expander("Translated Document Preview"):
+                        st.text_area("", processed_text[:1000] + "...", height=200)
 
             # Then perform analysis
             with st.spinner("Analyzing document..."):
@@ -162,9 +167,9 @@ def main():
                 for section_name, categories in sections.items():
                     # Filter categories with medium or high risk in this section
                     risky_categories = [cat for cat in categories 
-                                      if cat in analysis_results and 
-                                      isinstance(analysis_results[cat], dict) and
-                                      analysis_results[cat].get('risk_level') in ["High", "Medium"]]
+                                     if cat in analysis_results and 
+                                     isinstance(analysis_results[cat], dict) and
+                                     analysis_results[cat].get('risk_level') in ["High", "Medium"]]
 
                     if risky_categories:  # Only show section if it has items of concern
                         st.markdown(f"### {section_name}")
