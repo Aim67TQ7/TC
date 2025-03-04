@@ -50,8 +50,14 @@ def is_financial_term(phrase: str) -> bool:
     phrase_lower = phrase.lower()
     return any(keyword in phrase_lower for keyword in financial_keywords)
 
-def chunk_document(text: str, chunk_size: int = 4000) -> List[str]:
-    """Split document into smaller chunks for analysis."""
+def chunk_document(text: str, chunk_size: int = 6500) -> List[str]:
+    """Split document into smaller chunks for analysis while maintaining context.
+
+    Uses a larger chunk size (6500 chars) to:
+    - Keep related clauses together
+    - Provide sufficient context for analysis
+    - Balance processing efficiency
+    """
     # Split into paragraphs first
     paragraphs = text.split('\n\n')
     chunks = []
@@ -60,6 +66,7 @@ def chunk_document(text: str, chunk_size: int = 4000) -> List[str]:
 
     for para in paragraphs:
         para_size = len(para)
+        # Check if adding this paragraph would exceed chunk size
         if current_size + para_size > chunk_size and current_chunk:
             # Join current chunk and add to chunks
             chunks.append('\n\n'.join(current_chunk))
@@ -78,7 +85,14 @@ def chunk_document(text: str, chunk_size: int = 4000) -> List[str]:
 def analyze_document(text: str) -> Dict[str, Any]:
     """Analyze the document, chunking if necessary."""
     chunks = chunk_document(text)
-    st.info(f"📄 Analyzing document in {len(chunks)} chunks for thorough review...")
+    chunk_sizes = [len(chunk) for chunk in chunks]
+    avg_chunk_size = sum(chunk_sizes) / len(chunks)
+
+    st.info(f"""📄 Document Analysis Setup:
+    - Total length: {len(text):,} characters
+    - Split into {len(chunks)} chunks
+    - Average chunk size: {avg_chunk_size:,.0f} characters
+    - Processing chunks for thorough analysis...""")
 
     all_results = []
     progress_bar = st.progress(0)
