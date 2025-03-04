@@ -56,7 +56,10 @@ def generate_pdf_report(analysis_results):
 
     current_section = None
     for category, details in analysis_results.items():
-        if category == 'metrics':
+        if category in ['metrics', 'metadata']:
+            continue
+
+        if not isinstance(details, dict) or 'risk_level' not in details:
             continue
 
         # Determine which section this category belongs to
@@ -84,8 +87,8 @@ def generate_pdf_report(analysis_results):
             pdf.multi_cell(0, 10, txt=f"Risk Level: {details['risk_level']}")
             pdf.multi_cell(0, 10, txt=f"Findings: {details['findings']}")
 
-            # Add quoted phrases with ASCII indicators instead of emoji
-            if details['quoted_phrases']:
+            # Add quoted phrases with ASCII indicators
+            if details.get('quoted_phrases'):
                 pdf.multi_cell(0, 10, txt="Notable Terms:")
                 for phrase in details['quoted_phrases']:
                     marker = "[!]" if phrase['is_financial'] else "[*]"  # ASCII markers instead of emoji
