@@ -1,5 +1,6 @@
 import streamlit as st
 import os
+import pandas as pd
 from utils import extract_text_from_file, generate_pdf_report, generate_csv_report
 from analyzer import analyze_document, ANALYSIS_CATEGORIES
 from styles import apply_custom_styles, show_risk_level
@@ -46,30 +47,35 @@ def main():
 
         if st.button("Analyze Document"):
             with st.spinner("Analyzing document..."):
-                progress_bar = st.progress(0)
-
                 # Perform analysis
                 analysis_results = analyze_document(document_text)
 
-                # Display results
-                st.markdown("### Analysis Results")
+                # Create data for the bar chart
+                risk_levels = {'High': 3, 'Medium': 2, 'Low': 1}
+                chart_data = pd.DataFrame({
+                    'Category': list(analysis_results.keys()),
+                    'Risk Score': [risk_levels[result['risk_level']] for result in analysis_results.values()],
+                    'Risk Level': [result['risk_level'] for result in analysis_results.values()]
+                })
 
-                # Filter categories
-                selected_categories = st.multiselect(
-                    "Filter by category",
-                    ANALYSIS_CATEGORIES,
-                    default=ANALYSIS_CATEGORIES
+                # Display bar chart
+                st.markdown("### Risk Assessment Overview")
+                chart = st.bar_chart(
+                    data=chart_data.set_index('Category')['Risk Score'],
+                    height=400
                 )
 
-                # Display results for selected categories
-                for category in selected_categories:
+                # Display detailed results in expandable sections
+                st.markdown("### Detailed Analysis")
+                for category in ANALYSIS_CATEGORIES:
                     result = analysis_results[category]
-                    with st.expander(category):
+                    with st.expander(f"{category} - {result['risk_level']} Risk"):
                         st.markdown(show_risk_level(result['risk_level']), unsafe_allow_html=True)
                         st.markdown("**Findings:**")
                         st.write(result['findings'])
 
                 # Download options
+                st.markdown("### Download Reports")
                 col1, col2 = st.columns(2)
                 with col1:
                     pdf_report = generate_pdf_report(analysis_results)
