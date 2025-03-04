@@ -25,19 +25,28 @@ def apply_custom_styles():
         .section-header {
             font-size: 24px;
             font-weight: bold;
-            margin-top: 30px;
-            margin-bottom: 15px;
+            margin-top: 20px;
+            margin-bottom: 10px;
             color: #262730;
         }
         .item-container {
-            margin: 10px 0;
-            padding: 5px 0;
+            margin: 2px 0;
+            padding: 0;
         }
         .findings-text {
-            margin-top: 10px;
+            margin-top: 5px;
             font-size: 14px;
             color: #666;
-            line-height: 1.5;
+            line-height: 1.4;
+        }
+        .summary-box {
+            padding: 10px 15px;
+            border-radius: 5px;
+            background-color: #f8f9fa;
+            margin-bottom: 20px;
+        }
+        div.stExpander {
+            margin-bottom: 3px;
         }
         </style>
     """, unsafe_allow_html=True)

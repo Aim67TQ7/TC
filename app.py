@@ -29,6 +29,28 @@ def main():
                 # Perform analysis
                 analysis_results = analyze_document(document_text)
 
+                # Count items by risk level
+                risk_counts = {
+                    "High": sum(1 for r in analysis_results.values() if r['risk_level'] == "High"),
+                    "Medium": sum(1 for r in analysis_results.values() if r['risk_level'] == "Medium")
+                }
+
+                # Generate summary message
+                if risk_counts["High"] == 0 and risk_counts["Medium"] == 0:
+                    st.markdown("""
+                        <div class="summary-box">
+                        ✅ I reviewed the document and found no significant concerns that pose risk.
+                        </div>
+                    """, unsafe_allow_html=True)
+                else:
+                    summary = f"""
+                        <div class="summary-box">
+                        ⚠️ I found {risk_counts["Medium"]} item{"s" if risk_counts["Medium"] != 1 else ""} that should be reviewed
+                        {f' and {risk_counts["High"]} item{"s" if risk_counts["High"] != 1 else ""} that need{"s" if risk_counts["High"] == 1 else ""} to be thoroughly investigated' if risk_counts["High"] > 0 else ''}.
+                        </div>
+                    """
+                    st.markdown(summary, unsafe_allow_html=True)
+
                 # Define sections
                 sections = {
                     "Core Terms": ANALYSIS_CATEGORIES[:14],
@@ -36,27 +58,26 @@ def main():
                     "Delivery & Fulfillment": ANALYSIS_CATEGORIES[22:]
                 }
 
-                # Display results by section
+                # Only show sections with concerns
                 for section_name, categories in sections.items():
-                    st.markdown(f"### {section_name}")
+                    # Filter categories with medium or high risk in this section
+                    risky_categories = [cat for cat in categories 
+                                      if analysis_results[cat]['risk_level'] in ["High", "Medium"]]
 
-                    for category in categories:
-                        result = analysis_results[category]
-                        st.markdown(f"""<div class="item-container">""", unsafe_allow_html=True)
+                    if risky_categories:  # Only show section if it has items of concern
+                        st.markdown(f"### {section_name}")
 
-                        # Create expandable section for each category
-                        with st.expander(f"{show_risk_indicator(result['risk_level'])} {category}"):
-                            st.markdown("**Findings:**")
-                            st.write(result['findings'])
+                        for category in risky_categories:
+                            result = analysis_results[category]
+                            with st.expander(f"{show_risk_indicator(result['risk_level'])} {category}"):
+                                st.markdown("**Findings:**")
+                                st.write(result['findings'])
 
-                            # Add risk level explanation
-                            risk_explanations = {
-                                "High": "⚠️ Requires immediate attention and review",
-                                "Medium": "⚠️ Should be reviewed for potential issues",
-                                "Low": "✓ No significant concerns identified",
-                                "None": "ℹ️ Topic not mentioned in document"
-                            }
-                            st.markdown(f"**Risk Level:** {result['risk_level']} - {risk_explanations.get(result['risk_level'], '')}")
+                                risk_explanations = {
+                                    "High": "⚠️ Requires immediate attention and review",
+                                    "Medium": "⚠️ Should be reviewed for potential issues"
+                                }
+                                st.markdown(f"**Risk Level:** {result['risk_level']} - {risk_explanations[result['risk_level']]}")
 
                 # Download options
                 st.markdown("### Download Reports")
