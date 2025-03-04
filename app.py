@@ -48,9 +48,11 @@ def preprocess_document(text: str) -> tuple[str, dict]:
         'original_text': text  # Store original text
     }
 
+    processed_text = text
     if requires_translation:
+        st.info("Processing document for translation...")
         if language_analysis['has_mixed_content']:
-            st.warning("⚠️ Document contains mixed language content. Translating to English...")
+            st.warning("⚠️ Document contains mixed language content. Translating non-English sections...")
             paragraphs = text.split('\n\n')
             translated_paragraphs = []
             original_paragraphs = []  # Store original paragraphs
@@ -96,9 +98,8 @@ def preprocess_document(text: str) -> tuple[str, dict]:
                 # Update progress bar
                 progress_bar.progress((i + 1) / total_paragraphs)
 
-            # Combine paragraphs maintaining document structure
-            text = '\n\n'.join(translated_paragraphs)
-            st.success("✅ Mixed language content has been translated to English")
+            # Combine all content into one document
+            processed_text = '\n\n'.join(translated_paragraphs)
 
             # Store translation info in metadata
             metadata['translation_details'] = {
@@ -111,8 +112,7 @@ def preprocess_document(text: str) -> tuple[str, dict]:
         else:
             st.warning(f"⚠️ Document appears to be in {language_analysis['primary_language']}. Translating to English...")
             original_text = text
-            text = translate_text(text, language_analysis['primary_language'])
-            st.success("✅ Document has been translated to English")
+            processed_text = translate_text(text, language_analysis['primary_language'])
 
             # Store translation info in metadata
             metadata['translation_details'] = {
@@ -122,7 +122,11 @@ def preprocess_document(text: str) -> tuple[str, dict]:
 
         metadata['translation_status'] = 'completed'
 
-    return text, metadata
+        # Update metadata with final document length
+        metadata['length'] = len(processed_text)
+        st.success("✅ Translation completed")
+
+    return processed_text, metadata
 
 def analyze_and_display_results(processed_text: str, metadata: dict):
     """Perform analysis and display results."""
