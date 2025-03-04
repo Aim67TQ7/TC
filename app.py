@@ -2,7 +2,8 @@ import streamlit as st
 import os
 import pandas as pd
 from utils import extract_text_from_file, generate_pdf_report, generate_csv_report
-from analyzer import analyze_document, detect_language_sections, translate_text
+from analyzer import analyze_document, ANALYSIS_CATEGORIES
+from language_utils import detect_language_sections, translate_text
 from styles import apply_custom_styles, show_risk_indicator
 
 def display_language_analysis(metadata):
