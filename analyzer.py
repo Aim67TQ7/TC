@@ -1,6 +1,7 @@
 import anthropic
 import os
 import streamlit as st
+import re
 
 ANALYSIS_CATEGORIES = [
     "Introduction and Overview",
@@ -50,7 +51,8 @@ def analyze_document(text):
        - Medium Risk: Terms that contain specific requirements or conditions that warrant attention
        - Low Risk: Standard, commonly found terms
        - None: Topics not mentioned in the document
-    2. Specific findings highlighting any unusual terms, special requirements, or notable deviations from standard T&Cs
+    2. Extract and quote the exact phrases that are unusual or contain special requirements
+    3. Explain why these specific phrases are considered unusual or special
 
     Document text:
     {text}
@@ -58,16 +60,18 @@ def analyze_document(text):
     Please analyze for these categories:
     {', '.join(ANALYSIS_CATEGORIES)}
 
-    For each category, consider:
-    - Unusual or non-standard terms
-    - Special requirements or conditions
-    - Deviations from common industry practices
-    - Region-specific or unusual requirements
-    - Novel or unique clauses
-    - Complex or intricate conditions
+    For each category, identify:
+    - Direct quotes of unusual or non-standard terms
+    - Specific phrases containing special requirements
+    - Text showing deviations from common industry practices
+    - Unique or complex conditions
+    - Region-specific requirements
+    - Novel clauses or unusual stipulations
 
-    Format the response as a Python dictionary with categories as keys and values as dictionaries containing 'risk_level' and 'findings'.
-    Focus on highlighting what makes certain terms unusual or special rather than just general concerns.
+    Format the response as a Python dictionary with categories as keys and values as dictionaries containing:
+    - 'risk_level': The assessed risk level
+    - 'findings': Analysis of why terms are unusual/special
+    - 'quoted_phrases': List of exact phrases from the document that triggered the risk assessment
     """
 
     response = client.messages.create(
@@ -84,27 +88,38 @@ def analyze_document(text):
         analysis_results = {}
         for category in ANALYSIS_CATEGORIES:
             if category.lower() in content.lower():
-                # Determine risk level based on presence of unusual terms
-                if "unusual" in content.lower() or "special requirement" in content.lower() or "significant deviation" in content.lower():
+                # Extract quotes and determine risk level
+                result_section = content.split(category)[1].split(next((c for c in ANALYSIS_CATEGORIES if c.lower() in content.lower() and c != category), ""))[0]
+
+                # Look for quoted text
+                quoted_phrases = []
+                quotes = re.findall(r'"([^"]*)"', result_section)
+                if quotes:
+                    quoted_phrases = quotes
+
+                # Determine risk level based on content
+                if (any(term in result_section.lower() for term in ['unusual', 'unique', 'special requirement', 'significant deviation', 'non-standard'])) or quoted_phrases:
                     risk_level = "High"
-                elif "specific requirement" in content.lower() or "notable condition" in content.lower():
+                elif any(term in result_section.lower() for term in ['specific requirement', 'notable condition', 'requires attention']):
                     risk_level = "Medium"
                 else:
                     risk_level = "Low"
 
-                findings = content.split(category)[1].split("\n")[0]
+                findings = result_section.strip()
 
                 analysis_results[category] = {
                     'risk_level': risk_level,
-                    'findings': findings.strip()
+                    'findings': findings,
+                    'quoted_phrases': quoted_phrases if quoted_phrases else []
                 }
             else:
                 analysis_results[category] = {
                     'risk_level': 'None',
-                    'findings': 'Not mentioned in document.'
+                    'findings': 'Not mentioned in document.',
+                    'quoted_phrases': []
                 }
 
         return analysis_results
     except Exception as e:
         st.error(f"Error parsing Claude's response: {str(e)}")
-        return {cat: {'risk_level': 'Error', 'findings': 'Analysis failed'} for cat in ANALYSIS_CATEGORIES}
+        return {cat: {'risk_level': 'Error', 'findings': 'Analysis failed', 'quoted_phrases': []} for cat in ANALYSIS_CATEGORIES}
