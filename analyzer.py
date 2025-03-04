@@ -1,5 +1,6 @@
 import anthropic
 import os
+import streamlit as st
 
 ANALYSIS_CATEGORIES = [
     "Introduction and Overview",
@@ -23,7 +24,17 @@ ANALYSIS_CATEGORIES = [
     "Liability for Regulatory Breaches",
     "Third-Party Audits",
     "International Standards Compliance",
-    "Regulatory Violation Recourse"
+    "Regulatory Violation Recourse",
+    "Delivery Process and Timeframes",
+    "Delivery Costs",
+    "Delivery Risk and Responsibility",
+    "Delayed or Failed Deliveries",
+    "Delivery Location and Restrictions",
+    "International Delivery",
+    "Returns and Delivery Failures",
+    "Acceptance of Delivery",
+    "Subscription Services Delivery",
+    "Failed Delivery Handling"
 ]
 
 def analyze_document(text):
@@ -47,6 +58,9 @@ def analyze_document(text):
     - Potential risks to users
     - Compliance with standard practices
     - Fairness and reasonableness
+    - Delivery terms and conditions (if applicable)
+    - International considerations
+    - Consumer protection requirements
 
     Format the response as a Python dictionary with categories as keys and values as dictionaries containing 'risk_level' and 'findings'.
     """

@@ -41,6 +41,18 @@ def main():
         20. **Third-Party Audits**: External auditing and certification requirements
         21. **International Standards Compliance**: Global regulatory framework adherence
         22. **Regulatory Violation Recourse**: Consumer rights and remedies
+
+        Delivery & Fulfillment:
+        23. **Delivery Process and Timeframes**: Estimated delivery times and guarantees
+        24. **Delivery Costs**: Shipping fees, handling charges, and payment terms
+        25. **Delivery Risk and Responsibility**: Transfer of risk and ownership during shipping
+        26. **Delayed or Failed Deliveries**: Handling of delays and delivery failures
+        27. **Delivery Location and Restrictions**: Geographic limitations and address requirements
+        28. **International Delivery**: Cross-border shipping terms and customs handling
+        29. **Returns and Delivery Failures**: Return shipping policies and procedures
+        30. **Acceptance of Delivery**: Inspection requirements and signature protocols
+        31. **Subscription Services Delivery**: Recurring delivery terms and modifications
+        32. **Failed Delivery Handling**: Unclaimed package policies and resolution
         """)
 
     uploaded_file = st.file_uploader(
