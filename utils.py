@@ -42,9 +42,9 @@ def generate_pdf_report(analysis_results):
         pdf.set_font("Arial", 'B', 14)
         pdf.cell(200, 10, txt="Analysis Metrics", ln=True)
         pdf.set_font("Arial", size=12)
-        pdf.multi_cell(0, 10, txt=f"Complexity Score: {metrics.get('complexity_score', 0):.1f}%")
-        pdf.multi_cell(0, 10, txt=f"Financial Impact: {metrics.get('financial_impact', 0):.1f}%")
-        pdf.multi_cell(0, 10, txt=f"Unusual Terms Ratio: {metrics.get('unusual_terms_ratio', 0):.1f}%")
+        pdf.multi_cell(0, 10, txt=f"Complexity Score: {metrics['complexity_score']:.1f}%")
+        pdf.multi_cell(0, 10, txt=f"Financial Impact: {metrics['financial_impact']:.1f}%")
+        pdf.multi_cell(0, 10, txt=f"Unusual Terms Ratio: {metrics['unusual_terms_ratio']:.1f}%")
         pdf.ln(10)
 
     # Section summaries
@@ -56,10 +56,7 @@ def generate_pdf_report(analysis_results):
 
     current_section = None
     for category, details in analysis_results.items():
-        if category in ['metrics', 'metadata']:
-            continue
-
-        if not isinstance(details, dict):
+        if category == 'metrics':
             continue
 
         # Determine which section this category belongs to
@@ -80,21 +77,19 @@ def generate_pdf_report(analysis_results):
             pdf.ln(5)
             pdf.set_font("Arial", size=12)
 
-        risk_level = details.get('risk_level', 'Unknown')
-        if risk_level in ['High', 'Medium']:
+        if details['risk_level'] in ['High', 'Medium']:
             pdf.set_font("Arial", 'B', 12)
             pdf.cell(200, 10, txt=category, ln=True)
             pdf.set_font("Arial", size=12)
-            pdf.multi_cell(0, 10, txt=f"Risk Level: {risk_level}")
-            pdf.multi_cell(0, 10, txt=f"Findings: {details.get('findings', '')}")
+            pdf.multi_cell(0, 10, txt=f"Risk Level: {details['risk_level']}")
+            pdf.multi_cell(0, 10, txt=f"Findings: {details['findings']}")
 
-            # Add quoted phrases with ASCII indicators
-            quoted_phrases = details.get('quoted_phrases', [])
-            if quoted_phrases:
+            # Add quoted phrases with ASCII indicators instead of emoji
+            if details['quoted_phrases']:
                 pdf.multi_cell(0, 10, txt="Notable Terms:")
-                for phrase in quoted_phrases:
-                    marker = "[!]" if phrase.get('is_financial', False) else "[*]"
-                    pdf.multi_cell(0, 10, txt=f"{marker} {phrase.get('text', '')}")
+                for phrase in details['quoted_phrases']:
+                    marker = "[!]" if phrase['is_financial'] else "[*]"  # ASCII markers instead of emoji
+                    pdf.multi_cell(0, 10, txt=f"{marker} {phrase['text']}")
             pdf.ln(5)
 
     return pdf.output(dest='S').encode('latin-1')
@@ -104,10 +99,7 @@ def generate_csv_report(analysis_results):
     data = []
 
     for category, details in analysis_results.items():
-        if category in ['metrics', 'metadata']:
-            continue
-
-        if not isinstance(details, dict):
+        if category == 'metrics':
             continue
 
         if category in ANALYSIS_CATEGORIES[:14]:
@@ -121,14 +113,14 @@ def generate_csv_report(analysis_results):
             section_summary = "Logistics and delivery processes"
 
         # Create a row for each quoted phrase
-        if details.get('quoted_phrases'):
+        if details['quoted_phrases']:
             for phrase in details['quoted_phrases']:
                 data.append({
                     'Section': section,
                     'Section Summary': section_summary,
                     'Category': category,
-                    'Risk Level': details.get('risk_level', 'Unknown'),
-                    'Findings': details.get('findings', ''),
+                    'Risk Level': details['risk_level'],
+                    'Findings': details['findings'],
                     'Term': phrase['text'],
                     'Is Financial': 'Yes' if phrase['is_financial'] else 'No'
                 })
@@ -137,8 +129,8 @@ def generate_csv_report(analysis_results):
                 'Section': section,
                 'Section Summary': section_summary,
                 'Category': category,
-                'Risk Level': details.get('risk_level', 'Unknown'),
-                'Findings': details.get('findings', ''),
+                'Risk Level': details['risk_level'],
+                'Findings': details['findings'],
                 'Term': '',
                 'Is Financial': ''
             })
@@ -150,7 +142,7 @@ def generate_csv_report(analysis_results):
             'Section': 'Metrics Summary',
             'Section Summary': 'Overall analysis metrics',
             'Category': 'Complexity Score',
-            'Risk Level': f"{metrics.get('complexity_score', 0):.1f}%",
+            'Risk Level': f"{metrics['complexity_score']:.1f}%",
             'Findings': 'Percentage of categories with specific requirements or unusual terms',
             'Term': '',
             'Is Financial': ''
