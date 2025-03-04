@@ -188,15 +188,19 @@ def merge_analysis_results(results_list: List[Dict[str, Any]]) -> Dict[str, Any]
                 if risk_levels.index(cat_data['risk_level']) > risk_levels.index(merged[category]['risk_level']):
                     merged[category]['risk_level'] = cat_data['risk_level']
 
-                # Combine findings and quotes
+                # Combine findings
                 if cat_data['findings'] != "No specific findings." and cat_data['findings'] != "Not mentioned in document.":
                     merged[category]['findings'].append(cat_data['findings'])
-                merged[category]['quoted_phrases'].extend(cat_data['quoted_phrases'])
+
+                # Combine quoted phrases, avoiding duplicates
+                seen_phrases = {(q['text'], q['is_financial']) for q in merged[category]['quoted_phrases']}
+                for phrase in cat_data['quoted_phrases']:
+                    if (phrase['text'], phrase['is_financial']) not in seen_phrases:
+                        merged[category]['quoted_phrases'].append(phrase)
+                        seen_phrases.add((phrase['text'], phrase['is_financial']))
 
         # Clean up merged data
         merged[category]['findings'] = '\n'.join(merged[category]['findings']) if merged[category]['findings'] else "No specific findings."
-        merged[category]['quoted_phrases'] = list({(q['text'], q['is_financial']) 
-                                                 for q in merged[category]['quoted_phrases']})
 
     # Calculate overall metrics
     metrics = calculate_metrics(merged)
