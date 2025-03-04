@@ -64,15 +64,25 @@ def calculate_metrics(analysis_results: Dict[str, Any]) -> Dict[str, float]:
 
 def analyze_document(text: str) -> Dict[str, Any]:
     """Analyze the document text (assumes text is in English)."""
+    # Check document length
     is_long_document = len(text) > 8000
+    chunks = []
+
     if is_long_document:
-        st.info("📄 Document is lengthy and will be processed in chunks for optimal analysis. This may take a few moments.")
+        st.info("📄 Document is lengthy and will be processed in chunks for optimal analysis.")
         chunks = chunk_document(text)
         all_results = []
+
+        # Process each chunk with progress indicator
+        progress_bar = st.progress(0)
+        total_chunks = len(chunks)
+
         for i, chunk in enumerate(chunks, 1):
-            st.write(f"Processing chunk {i} of {len(chunks)}...")
+            st.write(f"Analyzing chunk {i} of {total_chunks}...")
             chunk_results = analyze_chunk(chunk)
             all_results.append(chunk_results)
+            progress_bar.progress((i) / total_chunks)
+
         results = merge_analysis_results(all_results)
     else:
         results = analyze_chunk(text)
@@ -80,7 +90,7 @@ def analyze_document(text: str) -> Dict[str, Any]:
     # Add information about document composition
     results['document_info'] = {
         'length': len(text),
-        'chunks': len(chunks) if is_long_document else 1,
+        'chunks': len(chunks) if is_long_document else 1
     }
 
     return results
@@ -108,34 +118,40 @@ def analyze_chunk(text: str) -> Dict[str, Any]:
     client = anthropic.Anthropic(api_key=os.getenv('ANTHROPIC_API_KEY'))
 
     prompt = f"""
-    Analyze this Terms and Conditions document, focusing on identifying unusual or special terms that deviate from standard T&Cs.
-    Pay special attention to financial terms or requirements that have monetary impact.
+    Analyze this Terms and Conditions document chunk thoroughly. Pay special attention to identifying:
+    1. Any unusual or special terms that deviate from standard T&Cs
+    2. Financial terms or requirements that have monetary impact
+    3. Specific obligations or restrictions that are noteworthy
+    4. Any terms that might be considered high-risk or require special attention
 
-    For each category, provide your analysis in this EXACT format with these EXACT section markers:
+    For each category, provide your analysis in this EXACT format:
 
     ###[Category Name]###
     RISK: [High/Medium/Low/None]
-    FINDINGS: [Brief analysis explaining why terms are unusual/special]
+    FINDINGS: [Detailed analysis explaining why terms are unusual/special]
     QUOTES: [List each unusual term in quotes, one per line]
 
     Example format:
     ###Payment Terms###
     RISK: High
-    FINDINGS: Contains unusual fee structures and non-standard payment requirements
+    FINDINGS: Contains unusual fee structures and non-standard payment requirements that significantly deviate from industry norms. Late payment penalties are particularly severe.
     QUOTES: "Monthly service fee of $99.99 non-refundable after 3 days"
     "Late payments subject to 25% compound interest"
+    "Automatic renewal with 50% price increase without notice"
 
-    Document text:
+    Document chunk to analyze:
     {text}
 
     Categories to analyze:
     {', '.join(ANALYSIS_CATEGORIES)}
 
     Guidelines:
-    - Mark any terms involving fees, payments, or financial obligations
-    - Highlight unusual requirements or non-standard conditions
-    - Quote exact phrases from the document
+    - Be thorough in identifying any terms that deviate from standard practice
+    - Pay special attention to financial obligations and penalties
+    - Highlight terms that could pose risks or require special attention
+    - Include exact quotes from the document for all identified issues
     - Start each category with ###[Category Name]### exactly as shown
+    - Err on the side of being more cautious - if something seems unusual, flag it
     """
 
     try:
@@ -157,7 +173,6 @@ def analyze_chunk(text: str) -> Dict[str, Any]:
             return {cat: {'risk_level': 'Error', 'findings': 'Invalid response', 'quoted_phrases': []} for cat in ANALYSIS_CATEGORIES}
 
         content = response.content[0].text if response.content else ""
-
         return process_analysis_response(content)
 
     except Exception as e:

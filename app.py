@@ -44,7 +44,8 @@ def preprocess_document(text: str) -> tuple[str, dict]:
         'length': len(text),
         'language_analysis': language_analysis,
         'required_translation': requires_translation,
-        'translation_status': 'not_needed'
+        'translation_status': 'not_needed',
+        'original_text': text  # Store original text
     }
 
     if requires_translation:
@@ -52,6 +53,7 @@ def preprocess_document(text: str) -> tuple[str, dict]:
             st.warning("⚠️ Document contains mixed language content. Translating to English...")
             paragraphs = text.split('\n\n')
             translated_paragraphs = []
+            original_paragraphs = []  # Store original paragraphs
 
             # Create a progress bar for translation
             progress_bar = st.progress(0)
@@ -70,6 +72,7 @@ def preprocess_document(text: str) -> tuple[str, dict]:
                                 needs_translation = True
                                 translated_para = translate_text(para, section['language'])
                                 translated_paragraphs.append(translated_para)
+                                original_paragraphs.append(para)  # Store original
                                 translated_sections.append({
                                     'index': i,
                                     'original': para,
@@ -81,10 +84,14 @@ def preprocess_document(text: str) -> tuple[str, dict]:
                         if not needs_translation:
                             # Keep original paragraph if it's already in English
                             translated_paragraphs.append(para)
-                    except:
+                            original_paragraphs.append(para)
+                    except Exception as e:
+                        st.error(f"Translation error in paragraph {i}: {str(e)}")
                         translated_paragraphs.append(para)
+                        original_paragraphs.append(para)
                 else:
                     translated_paragraphs.append(para)
+                    original_paragraphs.append(para)
 
                 # Update progress bar
                 progress_bar.progress((i + 1) / total_paragraphs)
@@ -96,6 +103,8 @@ def preprocess_document(text: str) -> tuple[str, dict]:
             # Store translation info in metadata
             metadata['translation_details'] = {
                 'translated_sections': translated_sections,
+                'original_paragraphs': original_paragraphs,
+                'translated_paragraphs': translated_paragraphs,
                 'translation_type': 'partial'
             }
 
@@ -163,7 +172,7 @@ def analyze_and_display_results(processed_text: str, metadata: dict):
             "Delivery & Fulfillment": ANALYSIS_CATEGORIES[22:]
         }
 
-        # Only show sections with concerns
+        # Show sections with concerns
         for section_name, categories in sections.items():
             # Filter categories with medium or high risk in this section
             risky_categories = [cat for cat in categories 
@@ -185,7 +194,7 @@ def analyze_and_display_results(processed_text: str, metadata: dict):
                             st.markdown("**Unusual Terms Found:**")
                             for phrase in result['quoted_phrases']:
                                 # Color code based on type (red for financial, yellow for unusual)
-                                color = "#FF4B4B" if phrase['is_financial'] else "#FFA500"
+                                color = "#FF4B4B" if phrase.get('is_financial') else "#FFA500"
                                 st.markdown(f"""
                                     <div style='color: {color}; margin-left: 20px;'>
                                     • {phrase['text']}
@@ -269,101 +278,8 @@ def main():
         # Show analyze button if we have processed text
         if st.session_state.get('processed_text'):
             if st.button("Analyze Document"):
-                with st.spinner("Analyzing document..."):
-                    # Perform analysis
-                    analysis_results = analyze_document(st.session_state['processed_text'])
-                    analysis_results['metadata'] = st.session_state['metadata']
+                analyze_and_display_results(st.session_state['processed_text'], st.session_state['metadata'])
 
-                    # Show document metadata and language analysis
-                    display_language_analysis(st.session_state['metadata'])
-                    doc_length = st.session_state['metadata'].get('length', 0)
-                    st.info(f"📄 Document Length: {doc_length:,} characters")
-
-                    # Count items by risk level
-                    risk_counts = {
-                        "High": sum(1 for k, r in analysis_results.items() 
-                                  if k not in ['metrics', 'metadata'] and isinstance(r, dict) and r.get('risk_level') == "High"),
-                        "Medium": sum(1 for k, r in analysis_results.items() 
-                                    if k not in ['metrics', 'metadata'] and isinstance(r, dict) and r.get('risk_level') == "Medium")
-                    }
-
-                    # Generate summary message
-                    if risk_counts["High"] == 0 and risk_counts["Medium"] == 0:
-                        st.markdown("""
-                            <div class="summary-box">
-                            ✅ I reviewed the document and found no unusual terms or special requirements that deviate from standard T&Cs.
-                            </div>
-                        """, unsafe_allow_html=True)
-                    else:
-                        summary = f"""
-                            <div class="summary-box">
-                            ⚠️ I found {risk_counts["Medium"]} item{"s" if risk_counts["Medium"] != 1 else ""} with specific requirements to review
-                            {f' and {risk_counts["High"]} unusual term{"s" if risk_counts["High"] != 1 else ""} that significantly deviate{"s" if risk_counts["High"] == 1 else ""} from standard T&Cs' if risk_counts["High"] > 0 else ''}.
-                            </div>
-                        """
-                        st.markdown(summary, unsafe_allow_html=True)
-
-                    # Define sections
-                    sections = {
-                        "Core Terms": ANALYSIS_CATEGORIES[:14],
-                        "Quality & Compliance": ANALYSIS_CATEGORIES[14:22],
-                        "Delivery & Fulfillment": ANALYSIS_CATEGORIES[22:]
-                    }
-
-                    # Show sections with concerns (high/medium risk)
-                    for section_name, categories in sections.items():
-                        # Filter categories with medium or high risk
-                        risky_categories = [cat for cat in categories 
-                                          if cat in analysis_results and 
-                                          isinstance(analysis_results[cat], dict) and
-                                          analysis_results[cat].get('risk_level') in ["High", "Medium"]]
-
-                        if risky_categories:  # Only show section if it has items of concern
-                            st.markdown(f"### {section_name}")
-
-                            for category in risky_categories:
-                                result = analysis_results[category]
-                                with st.expander(f"{show_risk_indicator(result['risk_level'])} {category}"):
-                                    st.markdown("**Findings:**")
-                                    st.write(result['findings'])
-
-                                    # Display quoted phrases with color coding
-                                    if result.get('quoted_phrases'):
-                                        st.markdown("**Unusual Terms Found:**")
-                                        for phrase in result['quoted_phrases']:
-                                            color = "#FF4B4B" if phrase['is_financial'] else "#FFA500"
-                                            st.markdown(f"""
-                                                <div style='color: {color}; margin-left: 20px;'>
-                                                • {phrase['text']}
-                                                </div>
-                                            """, unsafe_allow_html=True)
-
-                                    risk_explanations = {
-                                        "High": "⚠️ Contains terms with significant financial impact or unusual requirements",
-                                        "Medium": "⚠️ Contains specific requirements or conditions to review"
-                                    }
-                                    st.markdown(f"**Risk Level:** {result['risk_level']} - {risk_explanations[result['risk_level']]}")
-
-                    # Download options
-                    st.markdown("### Download Reports")
-                    col1, col2 = st.columns(2)
-                    with col1:
-                        pdf_report = generate_pdf_report(analysis_results)
-                        st.download_button(
-                            "Download PDF Report",
-                            pdf_report,
-                            "tc_analysis_report.pdf",
-                            "application/pdf"
-                        )
-
-                    with col2:
-                        csv_report = generate_csv_report(analysis_results)
-                        st.download_button(
-                            "Download CSV Report",
-                            csv_report,
-                            "tc_analysis_report.csv",
-                            "text/csv"
-                        )
 
 if __name__ == "__main__":
     main()
