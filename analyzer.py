@@ -229,20 +229,24 @@ def merge_analysis_results(results_list: List[Dict[str, Any]]) -> Dict[str, Any]
         for result in results_list:
             if category in result:
                 cat_data = result[category]
+
                 # Take highest risk level
-                if risk_levels.index(cat_data['risk_level']) > risk_levels.index(merged[category]['risk_level']):
+                current_risk_idx = risk_levels.index(merged[category]['risk_level'])
+                new_risk_idx = risk_levels.index(cat_data.get('risk_level', 'None'))
+                if new_risk_idx > current_risk_idx:
                     merged[category]['risk_level'] = cat_data['risk_level']
 
                 # Combine findings
-                if cat_data['findings'] != "No specific findings." and cat_data['findings'] != "Not mentioned in document.":
+                if cat_data.get('findings') and cat_data['findings'] not in ["No specific findings.", "Not mentioned in document."]:
                     merged[category]['findings'].append(cat_data['findings'])
 
                 # Combine quoted phrases, avoiding duplicates
-                seen_phrases = {(q['text'], q['is_financial']) for q in merged[category]['quoted_phrases']}
-                for phrase in cat_data['quoted_phrases']:
-                    if (phrase['text'], phrase['is_financial']) not in seen_phrases:
-                        merged[category]['quoted_phrases'].append(phrase)
-                        seen_phrases.add((phrase['text'], phrase['is_financial']))
+                if cat_data.get('quoted_phrases'):
+                    seen_phrases = {(q['text'], q['is_financial']) for q in merged[category]['quoted_phrases']}
+                    for phrase in cat_data['quoted_phrases']:
+                        if (phrase['text'], phrase['is_financial']) not in seen_phrases:
+                            merged[category]['quoted_phrases'].append(phrase)
+                            seen_phrases.add((phrase['text'], phrase['is_financial']))
 
         # Clean up merged data
         merged[category]['findings'] = '\n'.join(merged[category]['findings']) if merged[category]['findings'] else "No specific findings."
