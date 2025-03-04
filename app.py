@@ -10,6 +10,27 @@ def main():
     st.title("T&C Review Agent")
     st.markdown("Upload your T&C document for comprehensive analysis across key areas of concern.")
 
+    # Add explanation of analysis categories
+    with st.expander("📋 What We Review"):
+        st.markdown("""
+        Our agent analyzes Terms & Conditions documents across these 14 key areas:
+
+        1. **Introduction and Overview**: Purpose, scope, and acceptance methods
+        2. **User Rights and Responsibilities**: Usage rights, restrictions, and account obligations
+        3. **Privacy Policy and Data Usage**: Data collection, sharing, and protection practices
+        4. **Payment Terms**: Pricing, refunds, and payment processing details
+        5. **Intellectual Property Rights**: Content ownership and usage rights
+        6. **Limitation of Liability**: Company's liability scope and warranty disclaimers
+        7. **Termination and Suspension**: Account termination conditions and processes
+        8. **Dispute Resolution**: Conflict resolution methods and jurisdiction
+        9. **Amendments and Updates**: Terms modification processes and notification methods
+        10. **Governing Law**: Applicable legal jurisdiction and frameworks
+        11. **Force Majeure**: Provisions for unforeseeable circumstances
+        12. **Severability**: Impact of invalid terms on overall agreement
+        13. **User Consent for Marketing**: Marketing communications and opt-out rights
+        14. **Specific Rights for Certain Regions**: Region-specific legal requirements
+        """)
+
     uploaded_file = st.file_uploader(
         "Upload your document (PDF, DOCX, or TXT)", 
         type=["pdf", "docx", "txt"]
