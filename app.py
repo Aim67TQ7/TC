@@ -29,7 +29,7 @@ def main():
                 # Perform analysis
                 analysis_results = analyze_document(document_text)
 
-                # Define category sections
+                # Define sections
                 sections = {
                     "Core Terms": ANALYSIS_CATEGORIES[:14],
                     "Quality & Compliance": ANALYSIS_CATEGORIES[14:22],
@@ -40,19 +40,23 @@ def main():
                 for section_name, categories in sections.items():
                     st.markdown(f"### {section_name}")
 
-                    # Create three columns for the grid layout
-                    cols = st.columns(3)
-
-                    # Distribute categories across columns
-                    for idx, category in enumerate(categories):
-                        col_idx = idx % 3
+                    for category in categories:
                         result = analysis_results[category]
+                        st.markdown(f"""<div class="item-container">""", unsafe_allow_html=True)
 
-                        with cols[col_idx]:
-                            st.markdown(f"""
-                                {show_risk_indicator(result['risk_level'])} **{category}**  
-                                <div class='findings-text'>{result['findings'][:100]}...</div>
-                            """, unsafe_allow_html=True)
+                        # Create expandable section for each category
+                        with st.expander(f"{show_risk_indicator(result['risk_level'])} {category}"):
+                            st.markdown("**Findings:**")
+                            st.write(result['findings'])
+
+                            # Add risk level explanation
+                            risk_explanations = {
+                                "High": "⚠️ Requires immediate attention and review",
+                                "Medium": "⚠️ Should be reviewed for potential issues",
+                                "Low": "✓ No significant concerns identified",
+                                "None": "ℹ️ Topic not mentioned in document"
+                            }
+                            st.markdown(f"**Risk Level:** {result['risk_level']} - {risk_explanations.get(result['risk_level'], '')}")
 
                 # Download options
                 st.markdown("### Download Reports")

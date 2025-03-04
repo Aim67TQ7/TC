@@ -23,27 +23,21 @@ def apply_custom_styles():
             font-weight: bold;
         }
         .section-header {
-            font-size: 20px;
+            font-size: 24px;
             font-weight: bold;
-            margin-top: 20px;
-            margin-bottom: 10px;
+            margin-top: 30px;
+            margin-bottom: 15px;
+            color: #262730;
         }
-        .category-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 20px;
-            margin: 20px 0;
-        }
-        .category-item {
-            padding: 10px;
-            border-radius: 5px;
-            background-color: #F8F9FA;
-            margin: 5px 0;
+        .item-container {
+            margin: 10px 0;
+            padding: 5px 0;
         }
         .findings-text {
-            margin-top: 5px;
+            margin-top: 10px;
             font-size: 14px;
             color: #666;
+            line-height: 1.5;
         }
         </style>
     """, unsafe_allow_html=True)
