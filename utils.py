@@ -84,11 +84,11 @@ def generate_pdf_report(analysis_results):
             pdf.multi_cell(0, 10, txt=f"Risk Level: {details['risk_level']}")
             pdf.multi_cell(0, 10, txt=f"Findings: {details['findings']}")
 
-            # Add quoted phrases with color indicators
+            # Add quoted phrases with ASCII indicators instead of emoji
             if details['quoted_phrases']:
                 pdf.multi_cell(0, 10, txt="Notable Terms:")
                 for phrase in details['quoted_phrases']:
-                    marker = "🔴" if phrase['is_financial'] else "🟡"
+                    marker = "[!]" if phrase['is_financial'] else "[*]"  # ASCII markers instead of emoji
                     pdf.multi_cell(0, 10, txt=f"{marker} {phrase['text']}")
             pdf.ln(5)
 
