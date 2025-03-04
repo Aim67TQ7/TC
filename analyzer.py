@@ -38,8 +38,15 @@ ANALYSIS_CATEGORIES = [
     "Failed Delivery Handling"
 ]
 
+def is_financial_term(phrase):
+    financial_keywords = [
+        'fee', 'cost', 'price', 'payment', 'charge', 'refund', 'credit',
+        'billing', 'subscription', 'money', 'financial', 'dollar', 'rate',
+        'expense', 'pay', 'compensation', 'penalty', 'fine'
+    ]
+    return any(keyword in phrase.lower() for keyword in financial_keywords)
+
 def analyze_document(text):
-    # the newest Anthropic model is "claude-3-5-sonnet-20241022" which was released October 22, 2024
     client = anthropic.Anthropic(api_key=os.getenv('ANTHROPIC_API_KEY'))
 
     prompt = f"""
@@ -62,16 +69,14 @@ def analyze_document(text):
 
     For each category, identify:
     - Direct quotes of unusual or non-standard terms
-    - Specific phrases containing special requirements
+    - Specific phrases containing special requirements, especially those with financial implications
     - Text showing deviations from common industry practices
     - Unique or complex conditions
     - Region-specific requirements
     - Novel clauses or unusual stipulations
 
-    Format the response as a Python dictionary with categories as keys and values as dictionaries containing:
-    - 'risk_level': The assessed risk level
-    - 'findings': Analysis of why terms are unusual/special
-    - 'quoted_phrases': List of exact phrases from the document that triggered the risk assessment
+    Format each quoted phrase on a new line with a brief explanation of why it's unusual or important.
+    Ensure financial terms are clearly identified for special highlighting.
     """
 
     response = client.messages.create(
@@ -88,19 +93,24 @@ def analyze_document(text):
         analysis_results = {}
         for category in ANALYSIS_CATEGORIES:
             if category.lower() in content.lower():
-                # Extract quotes and determine risk level
                 result_section = content.split(category)[1].split(next((c for c in ANALYSIS_CATEGORIES if c.lower() in content.lower() and c != category), ""))[0]
 
-                # Look for quoted text
+                # Extract quotes and their types
                 quoted_phrases = []
                 quotes = re.findall(r'"([^"]*)"', result_section)
-                if quotes:
-                    quoted_phrases = quotes
 
-                # Determine risk level based on content
-                if (any(term in result_section.lower() for term in ['unusual', 'unique', 'special requirement', 'significant deviation', 'non-standard'])) or quoted_phrases:
+                # Process each quote to determine if it's financial
+                processed_quotes = []
+                for quote in quotes:
+                    processed_quotes.append({
+                        'text': quote.strip(),
+                        'is_financial': is_financial_term(quote)
+                    })
+
+                # Determine risk level based on content and quotes
+                if processed_quotes and any(q['is_financial'] for q in processed_quotes):
                     risk_level = "High"
-                elif any(term in result_section.lower() for term in ['specific requirement', 'notable condition', 'requires attention']):
+                elif processed_quotes:
                     risk_level = "Medium"
                 else:
                     risk_level = "Low"
@@ -110,7 +120,7 @@ def analyze_document(text):
                 analysis_results[category] = {
                     'risk_level': risk_level,
                     'findings': findings,
-                    'quoted_phrases': quoted_phrases if quoted_phrases else []
+                    'quoted_phrases': processed_quotes
                 }
             else:
                 analysis_results[category] = {
