@@ -5,6 +5,80 @@ import re
 from typing import Dict, List, Any
 import langdetect
 
+def has_chinese_characters(text: str) -> bool:
+    """Check if text contains Chinese characters."""
+    return bool(re.search(r'[\u4e00-\u9fff]', text))
+
+def detect_language_sections(text: str) -> Dict[str, Any]:
+    """Analyze different sections of the document for language detection."""
+    # Split into paragraphs for granular analysis
+    paragraphs = text.split('\n\n')
+    sections_analysis = {
+        'primary_language': 'en',
+        'has_mixed_content': False,
+        'sections_requiring_translation': [],
+        'translation_confidence': 1.0
+    }
+
+    try:
+        # Check for Chinese characters first
+        has_chinese = has_chinese_characters(text)
+        if has_chinese:
+            sections_analysis['has_mixed_content'] = True
+            sections_analysis['primary_language'] = 'zh'
+            sections_analysis['translation_confidence'] = 0.9
+
+        # Detect primary language from full text
+        try:
+            detected_lang = langdetect.detect(text)
+            if detected_lang != 'en':
+                sections_analysis['primary_language'] = detected_lang
+        except:
+            if has_chinese:
+                sections_analysis['primary_language'] = 'zh'
+            else:
+                sections_analysis['primary_language'] = 'en'
+
+        # Analyze individual paragraphs
+        non_english_sections = []
+        paragraph_languages = set()
+
+        for i, para in enumerate(paragraphs):
+            if len(para.strip()) > 20:  # Lower threshold to catch shorter sections
+                # Check for Chinese characters first
+                if has_chinese_characters(para):
+                    non_english_sections.append({
+                        'index': i,
+                        'language': 'zh',
+                        'preview': para[:100] + '...' if len(para) > 100 else para
+                    })
+                    paragraph_languages.add('zh')
+                    continue
+
+                try:
+                    lang = langdetect.detect(para)
+                    paragraph_languages.add(lang)
+                    if lang != 'en':
+                        non_english_sections.append({
+                            'index': i,
+                            'language': lang,
+                            'preview': para[:100] + '...' if len(para) > 100 else para
+                        })
+                except:
+                    continue
+
+        sections_analysis['has_mixed_content'] = len(paragraph_languages) > 1 or has_chinese
+        sections_analysis['sections_requiring_translation'] = non_english_sections
+        sections_analysis['translation_confidence'] = 0.8 if has_chinese else (
+            1.0 if len(paragraph_languages) == 1 else 0.9
+        )
+
+    except Exception as e:
+        st.error(f"Error in language detection: {str(e)}")
+        sections_analysis['translation_confidence'] = 0.5
+
+    return sections_analysis
+
 def translate_text(text: str, source_lang: str) -> str:
     """Translate text to English using Claude."""
     client = anthropic.Anthropic(api_key=os.getenv('ANTHROPIC_API_KEY'))
@@ -32,59 +106,26 @@ def translate_text(text: str, source_lang: str) -> str:
         st.error(f"Translation error: {str(e)}")
         return text
 
-def detect_language_sections(text: str) -> Dict[str, Any]:
-    """Analyze different sections of the document for language detection."""
-    # Split into paragraphs for granular analysis
-    paragraphs = text.split('\n\n')
-    sections_analysis = {
-        'primary_language': 'en',
-        'has_mixed_content': False,
-        'sections_requiring_translation': [],
-        'translation_confidence': 1.0
-    }
+def analyze_document(text: str) -> Dict[str, Any]:
+    """Analyze the document text (assumes text is in English)."""
+    # Check document length
+    is_long_document = len(text) > 8000
+    if is_long_document:
+        st.info("📄 Document is lengthy and will be processed in chunks for optimal analysis. This may take a few moments.")
+        chunks = chunk_document(text)
+        all_results = []
+        for i, chunk in enumerate(chunks, 1):
+            st.write(f"Processing chunk {i} of {len(chunks)}...")
+            chunk_results = analyze_chunk(chunk)
+            all_results.append(chunk_results)
+        results = merge_analysis_results(all_results)
+    else:
+        results = analyze_chunk(text)
 
-    try:
-        # Detect primary language from full text
-        sections_analysis['primary_language'] = langdetect.detect(text)
-
-        # Analyze individual paragraphs
-        non_english_sections = []
-        paragraph_languages = set()
-
-        for i, para in enumerate(paragraphs):
-            if len(para.strip()) > 50:  # Only check substantial paragraphs
-                try:
-                    lang = langdetect.detect(para)
-                    paragraph_languages.add(lang)
-                    if lang != 'en':
-                        non_english_sections.append({
-                            'index': i,
-                            'language': lang,
-                            'preview': para[:100] + '...' if len(para) > 100 else para
-                        })
-                except:
-                    continue
-
-        sections_analysis['has_mixed_content'] = len(paragraph_languages) > 1
-        sections_analysis['sections_requiring_translation'] = non_english_sections
-        sections_analysis['translation_confidence'] = 1.0 if len(paragraph_languages) == 1 else 0.8
-
-    except Exception as e:
-        st.error(f"Error in language detection: {str(e)}")
-        sections_analysis['translation_confidence'] = 0.5
-
-    return sections_analysis
-
-def detect_language(text: str) -> str:
-    """Detect the language of the document."""
-    try:
-        return langdetect.detect(text)
-    except:
-        return 'en'  # Default to English if detection fails
+    return results
 
 def chunk_document(text: str, chunk_size: int = 8000) -> List[str]:
     """Split document into manageable chunks."""
-    # Split on paragraph breaks to keep context
     paragraphs = text.split('\n\n')
     chunks = []
     current_chunk = ""
@@ -100,68 +141,6 @@ def chunk_document(text: str, chunk_size: int = 8000) -> List[str]:
         chunks.append(current_chunk)
 
     return chunks
-
-def analyze_document(text: str) -> Dict[str, Any]:
-    # Perform language analysis first
-    language_analysis = detect_language_sections(text)
-    requires_translation = language_analysis['primary_language'] != 'en' or language_analysis['has_mixed_content']
-
-    if requires_translation:
-        message = "⚠️ "
-        if language_analysis['has_mixed_content']:
-            message += "Document contains mixed language content. "
-            # Handle mixed content by translating non-English sections
-            paragraphs = text.split('\n\n')
-            translated_paragraphs = []
-            for i, para in enumerate(paragraphs):
-                if len(para.strip()) > 50:  # Only translate substantial paragraphs
-                    try:
-                        lang = langdetect.detect(para)
-                        if lang != 'en':
-                            st.info(f"Translating section {i+1}...")
-                            translated_para = translate_text(para, lang)
-                            translated_paragraphs.append(translated_para)
-                        else:
-                            translated_paragraphs.append(para)
-                    except:
-                        translated_paragraphs.append(para)
-                else:
-                    translated_paragraphs.append(para)
-            text = '\n\n'.join(translated_paragraphs)
-            message += "Mixed language content has been translated to English."
-        else:
-            # Translate entire document
-            source_lang = language_analysis['primary_language']
-            message += f"Document appears to be in {source_lang}. "
-            st.info("Translating document to English...")
-            text = translate_text(text, source_lang)
-            message += "Document has been translated to English."
-
-        st.warning(message)
-
-    # Continue with existing length check and chunking
-    is_long_document = len(text) > 8000
-    if is_long_document:
-        st.info("📄 Document is lengthy and will be processed in chunks for optimal analysis. This may take a few moments.")
-        chunks = chunk_document(text)
-        all_results = []
-        for i, chunk in enumerate(chunks, 1):
-            st.write(f"Processing chunk {i} of {len(chunks)}...")
-            chunk_results = analyze_chunk(chunk)
-            all_results.append(chunk_results)
-        results = merge_analysis_results(all_results)
-    else:
-        results = analyze_chunk(text)
-
-    # Add language analysis and translation info to metadata
-    results['metadata'] = {
-        'length': len(text),
-        'language_analysis': language_analysis,
-        'required_translation': requires_translation,
-        'translation_status': 'completed' if requires_translation else 'not_needed'
-    }
-
-    return results
 
 def analyze_chunk(text: str) -> Dict[str, Any]:
     client = anthropic.Anthropic(api_key=os.getenv('ANTHROPIC_API_KEY'))
@@ -365,9 +344,9 @@ def calculate_metrics(analysis_results: Dict[str, Any]) -> Dict[str, float]:
     """Calculate various metrics based on the analysis results."""
     total_categories = len(ANALYSIS_CATEGORIES)
     risky_categories = sum(1 for r in analysis_results.values() if r['risk_level'] in ['High', 'Medium'])
-    financial_terms = sum(1 for r in analysis_results.values() 
+    financial_terms = sum(1 for r in analysis_results.values()
                          for q in r['quoted_phrases'] if q['is_financial'])
-    unusual_terms = sum(1 for r in analysis_results.values() 
+    unusual_terms = sum(1 for r in analysis_results.values()
                        for q in r['quoted_phrases'] if not q['is_financial'])
 
     return {

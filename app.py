@@ -2,7 +2,7 @@ import streamlit as st
 import os
 import pandas as pd
 from utils import extract_text_from_file, generate_pdf_report, generate_csv_report
-from analyzer import analyze_document, ANALYSIS_CATEGORIES
+from analyzer import analyze_document, detect_language_sections, translate_text
 from styles import apply_custom_styles, show_risk_indicator
 
 def display_language_analysis(metadata):
@@ -33,6 +33,59 @@ def display_language_analysis(metadata):
     if confidence < 1.0:
         st.info(f"ℹ️ Translation confidence: {confidence*100:.1f}%")
 
+def preprocess_document(text: str) -> tuple[str, dict]:
+    """Preprocess document text, including translation if needed."""
+    # First analyze language composition
+    language_analysis = detect_language_sections(text)
+    requires_translation = language_analysis['primary_language'] != 'en' or language_analysis['has_mixed_content']
+
+    metadata = {
+        'length': len(text),
+        'language_analysis': language_analysis,
+        'required_translation': requires_translation,
+        'translation_status': 'not_needed'
+    }
+
+    if requires_translation:
+        if language_analysis['has_mixed_content']:
+            st.warning("⚠️ Document contains mixed language content. Translating to English...")
+            # Handle mixed content by translating non-English sections
+            paragraphs = text.split('\n\n')
+            translated_paragraphs = []
+
+            # Create a progress bar for translation
+            progress_bar = st.progress(0)
+            total_paragraphs = len(paragraphs)
+
+            for i, para in enumerate(paragraphs):
+                if len(para.strip()) > 20:  # Only translate substantial paragraphs
+                    try:
+                        lang = language_analysis['sections_requiring_translation'][i]['language'] if i < len(language_analysis['sections_requiring_translation']) else 'en'
+                        if lang != 'en':
+                            translated_para = translate_text(para, lang)
+                            translated_paragraphs.append(translated_para)
+                        else:
+                            translated_paragraphs.append(para)
+                    except:
+                        translated_paragraphs.append(para)
+                else:
+                    translated_paragraphs.append(para)
+
+                # Update progress bar
+                progress_bar.progress((i + 1) / total_paragraphs)
+
+            text = '\n\n'.join(translated_paragraphs)
+            st.success("✅ Mixed language content has been translated to English")
+
+        else:
+            st.warning(f"⚠️ Document appears to be in {language_analysis['primary_language']}. Translating to English...")
+            text = translate_text(text, language_analysis['primary_language'])
+            st.success("✅ Document has been translated to English")
+
+        metadata['translation_status'] = 'completed'
+
+    return text, metadata
+
 def main():
     apply_custom_styles()
 
@@ -53,9 +106,15 @@ def main():
             st.text_area("", document_text[:1000] + "...", height=200)
 
         if st.button("Analyze Document"):
+            # First preprocess the document (including translation if needed)
+            with st.spinner("Preprocessing document..."):
+                processed_text, metadata = preprocess_document(document_text)
+
+            # Then perform analysis
             with st.spinner("Analyzing document..."):
                 # Perform analysis
-                analysis_results = analyze_document(document_text)
+                analysis_results = analyze_document(processed_text)
+                analysis_results['metadata'] = metadata  # Include preprocessing metadata
 
                 # Validate analysis results
                 if not analysis_results or not isinstance(analysis_results, dict):
@@ -63,11 +122,9 @@ def main():
                     return
 
                 # Show document metadata and language analysis
-                if 'metadata' in analysis_results:
-                    metadata = analysis_results['metadata']
-                    display_language_analysis(metadata)
-                    doc_length = metadata.get('length', 0)
-                    st.info(f"📄 Document Length: {doc_length:,} characters")
+                display_language_analysis(metadata)
+                doc_length = metadata.get('length', 0)
+                st.info(f"📄 Document Length: {doc_length:,} characters")
 
                 # Count items by risk level (excluding metrics and metadata keys)
                 risk_counts = {
