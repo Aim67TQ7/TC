@@ -5,6 +5,31 @@ from utils import extract_text_from_file, generate_pdf_report, generate_csv_repo
 from analyzer import analyze_document, ANALYSIS_CATEGORIES
 from styles import apply_custom_styles, show_risk_indicator
 
+def display_language_analysis(metadata):
+    """Display language analysis information."""
+    language_analysis = metadata.get('language_analysis', {})
+
+    if language_analysis.get('has_mixed_content'):
+        st.warning("⚠️ Document contains mixed language content which may affect analysis accuracy.")
+
+        # Show sections requiring translation
+        non_english = language_analysis.get('sections_requiring_translation', [])
+        if non_english:
+            with st.expander("View sections requiring translation"):
+                for section in non_english:
+                    st.markdown(f"""
+                        **Language detected**: {section['language']}
+                        ```
+                        {section['preview']}
+                        ```
+                        """)
+    elif metadata.get('required_translation'):
+        st.warning(f"⚠️ Document is primarily in {language_analysis.get('primary_language', 'non-English')}. Analysis includes translation.")
+
+    confidence = language_analysis.get('translation_confidence', 1.0)
+    if confidence < 1.0:
+        st.info(f"ℹ️ Translation confidence: {confidence*100:.1f}%")
+
 def main():
     apply_custom_styles()
 
@@ -34,13 +59,10 @@ def main():
                     st.error("Failed to analyze document. Please try again.")
                     return
 
-                # Show document metadata if available
+                # Show document metadata and language analysis
                 if 'metadata' in analysis_results:
                     metadata = analysis_results['metadata']
-                    if metadata.get('required_translation'):
-                        st.warning("⚠️ Document is not in English. Analysis includes translation, which may affect accuracy.")
-
-                    # Show document stats
+                    display_language_analysis(metadata)
                     doc_length = metadata.get('length', 0)
                     st.info(f"📄 Document Length: {doc_length:,} characters")
 
