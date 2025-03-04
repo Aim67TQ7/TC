@@ -40,101 +40,86 @@ ANALYSIS_CATEGORIES = [
 ]
 
 def is_financial_term(phrase: str) -> bool:
+    """Check if a phrase contains financial terms."""
     financial_keywords = [
         'fee', 'cost', 'price', 'payment', 'charge', 'refund', 'credit',
         'billing', 'subscription', 'money', 'financial', 'dollar', 'rate',
-        'expense', 'pay', 'compensation', 'penalty', 'fine'
+        'expense', 'pay', 'compensation', 'penalty', 'fine', '$', '€', '£',
+        'usd', 'eur', 'gbp', 'amount', 'fund', 'deposit', 'transaction'
     ]
-    return any(keyword in phrase.lower() for keyword in financial_keywords)
+    phrase_lower = phrase.lower()
+    return any(keyword in phrase_lower for keyword in financial_keywords)
 
-def calculate_metrics(analysis_results: Dict[str, Any]) -> Dict[str, float]:
-    """Calculate various metrics based on the analysis results."""
-    total_categories = len(ANALYSIS_CATEGORIES)
-    risky_categories = sum(1 for r in analysis_results.values() if r['risk_level'] in ['High', 'Medium'])
-    financial_terms = sum(1 for r in analysis_results.values()
-                         for q in r['quoted_phrases'] if q['is_financial'])
-    unusual_terms = sum(1 for r in analysis_results.values()
-                       for q in r['quoted_phrases'] if not q['is_financial'])
-
-    return {
-        'complexity_score': (risky_categories / total_categories) * 100,
-        'financial_impact': (financial_terms / max(1, financial_terms + unusual_terms)) * 100,
-        'unusual_terms_ratio': (unusual_terms / max(1, len(analysis_results))) * 100
-    }
-
-def analyze_document(text: str) -> Dict[str, Any]:
-    """Analyze the document text (assumes text is in English)."""
-    # Check document length
-    is_long_document = len(text) > 8000
-    chunks = []
-
-    if is_long_document:
-        st.info("📄 Document is lengthy and will be processed in chunks for optimal analysis.")
-        chunks = chunk_document(text)
-        all_results = []
-
-        # Process each chunk with progress indicator
-        progress_bar = st.progress(0)
-        total_chunks = len(chunks)
-
-        for i, chunk in enumerate(chunks, 1):
-            st.write(f"Analyzing chunk {i} of {total_chunks}...")
-            chunk_results = analyze_chunk(chunk)
-            all_results.append(chunk_results)
-            progress_bar.progress((i) / total_chunks)
-
-        results = merge_analysis_results(all_results)
-    else:
-        results = analyze_chunk(text)
-
-    # Add information about document composition
-    results['document_info'] = {
-        'length': len(text),
-        'chunks': len(chunks) if is_long_document else 1
-    }
-
-    return results
-
-def chunk_document(text: str, chunk_size: int = 8000) -> List[str]:
-    """Split document into manageable chunks."""
+def chunk_document(text: str, chunk_size: int = 4000) -> List[str]:
+    """Split document into smaller chunks for analysis."""
+    # Split into paragraphs first
     paragraphs = text.split('\n\n')
     chunks = []
-    current_chunk = ""
+    current_chunk = []
+    current_size = 0
 
     for para in paragraphs:
-        if len(current_chunk) + len(para) < chunk_size:
-            current_chunk += para + "\n\n"
+        para_size = len(para)
+        if current_size + para_size > chunk_size and current_chunk:
+            # Join current chunk and add to chunks
+            chunks.append('\n\n'.join(current_chunk))
+            current_chunk = [para]
+            current_size = para_size
         else:
-            chunks.append(current_chunk)
-            current_chunk = para + "\n\n"
+            current_chunk.append(para)
+            current_size += para_size
 
+    # Add the last chunk if it exists
     if current_chunk:
-        chunks.append(current_chunk)
+        chunks.append('\n\n'.join(current_chunk))
 
     return chunks
+
+def analyze_document(text: str) -> Dict[str, Any]:
+    """Analyze the document, chunking if necessary."""
+    chunks = chunk_document(text)
+    st.info(f"📄 Analyzing document in {len(chunks)} chunks for thorough review...")
+
+    all_results = []
+    progress_bar = st.progress(0)
+
+    for i, chunk in enumerate(chunks):
+        st.write(f"Analyzing chunk {i+1} of {len(chunks)}...")
+        chunk_results = analyze_chunk(chunk)
+        all_results.append(chunk_results)
+        progress_bar.progress((i + 1) / len(chunks))
+
+    # Merge results from all chunks
+    merged_results = merge_analysis_results(all_results)
+
+    # Calculate metrics
+    metrics = calculate_metrics(merged_results)
+    merged_results['metrics'] = metrics
+
+    return merged_results
 
 def analyze_chunk(text: str) -> Dict[str, Any]:
     """Analyze a single chunk of text."""
     client = anthropic.Anthropic(api_key=os.getenv('ANTHROPIC_API_KEY'))
 
     prompt = f"""
-    Analyze this Terms and Conditions document chunk thoroughly. Pay special attention to identifying:
-    1. Any unusual or special terms that deviate from standard T&Cs
-    2. Financial terms or requirements that have monetary impact
-    3. Specific obligations or restrictions that are noteworthy
-    4. Any terms that might be considered high-risk or require special attention
+    Analyze this Terms and Conditions document chunk thoroughly. You must identify:
+    1. ANY terms that deviate from standard T&Cs
+    2. ALL financial terms or requirements that have monetary impact
+    3. ALL specific obligations or restrictions
+    4. ANY terms that pose potential risks
 
-    For each category, provide your analysis in this EXACT format:
+    Use this EXACT format for each category:
 
     ###[Category Name]###
     RISK: [High/Medium/Low/None]
-    FINDINGS: [Detailed analysis explaining why terms are unusual/special]
-    QUOTES: [List each unusual term in quotes, one per line]
+    FINDINGS: [Detailed explanation of why terms are unusual/concerning]
+    QUOTES: [Each relevant quote from the document, one per line in quotes]
 
-    Example format:
+    Example output format:
     ###Payment Terms###
     RISK: High
-    FINDINGS: Contains unusual fee structures and non-standard payment requirements that significantly deviate from industry norms. Late payment penalties are particularly severe.
+    FINDINGS: Contains multiple non-standard payment requirements and severe penalties that significantly deviate from industry norms.
     QUOTES: "Monthly service fee of $99.99 non-refundable after 3 days"
     "Late payments subject to 25% compound interest"
     "Automatic renewal with 50% price increase without notice"
@@ -142,45 +127,36 @@ def analyze_chunk(text: str) -> Dict[str, Any]:
     Document chunk to analyze:
     {text}
 
-    Categories to analyze:
-    {', '.join(ANALYSIS_CATEGORIES)}
+    Categories to analyze: {', '.join(ANALYSIS_CATEGORIES)}
 
     Guidelines:
-    - Be thorough in identifying any terms that deviate from standard practice
-    - Pay special attention to financial obligations and penalties
-    - Highlight terms that could pose risks or require special attention
-    - Include exact quotes from the document for all identified issues
-    - Start each category with ###[Category Name]### exactly as shown
-    - Err on the side of being more cautious - if something seems unusual, flag it
+    - Flag ANY terms that seem unusual or deviate from standard practice
+    - Mark ALL financial obligations and requirements
+    - Note ALL specific requirements or restrictions
+    - Include EXACT quotes from the document
+    - Start each category with ###[Category Name]###
+    - Be thorough - if something seems unusual, flag it
+    - Pay special attention to terms with financial impact
     """
 
     try:
-        # Make API call with error handling
-        try:
-            response = client.messages.create(
-                model="claude-3-5-sonnet-20241022",
-                max_tokens=1500,
-                temperature=0,
-                messages=[{"role": "user", "content": prompt}]
-            )
-        except Exception as api_error:
-            st.error(f"API call failed: {str(api_error)}")
-            return {cat: {'risk_level': 'Error', 'findings': 'API call failed', 'quoted_phrases': []} for cat in ANALYSIS_CATEGORIES}
-
-        # Process response
-        if not response or not hasattr(response, 'content') or not response.content:
-            st.error("Invalid response structure from Claude")
-            return {cat: {'risk_level': 'Error', 'findings': 'Invalid response', 'quoted_phrases': []} for cat in ANALYSIS_CATEGORIES}
+        response = client.messages.create(
+            model="claude-3-5-sonnet-20241022",
+            max_tokens=1500,
+            temperature=0,
+            messages=[{"role": "user", "content": prompt}]
+        )
 
         content = response.content[0].text if response.content else ""
         return process_analysis_response(content)
 
     except Exception as e:
-        st.error(f"Error analyzing document: {str(e)}")
-        return {cat: {'risk_level': 'Error', 'findings': 'Analysis failed', 'quoted_phrases': []} for cat in ANALYSIS_CATEGORIES}
+        st.error(f"Error analyzing chunk: {str(e)}")
+        return {cat: {'risk_level': 'Error', 'findings': 'Analysis failed', 'quoted_phrases': []} 
+                for cat in ANALYSIS_CATEGORIES}
 
 def process_analysis_response(content: str) -> Dict[str, Any]:
-    """Process Claude's response and extract structured analysis results."""
+    """Process Claude's response into structured analysis results."""
     analysis_results = {}
 
     for category in ANALYSIS_CATEGORIES:
@@ -229,11 +205,8 @@ def process_analysis_response(content: str) -> Dict[str, Any]:
 def merge_analysis_results(results_list: List[Dict[str, Any]]) -> Dict[str, Any]:
     """Merge analysis results from multiple chunks."""
     merged = {}
-
-    # Define risk levels for comparison
     risk_levels = ['None', 'Low', 'Medium', 'High']
 
-    # Merge all categories
     for category in ANALYSIS_CATEGORIES:
         merged[category] = {
             'risk_level': 'None',
@@ -266,8 +239,24 @@ def merge_analysis_results(results_list: List[Dict[str, Any]]) -> Dict[str, Any]
         # Clean up merged data
         merged[category]['findings'] = '\n'.join(merged[category]['findings']) if merged[category]['findings'] else "No specific findings."
 
-    # Calculate overall metrics
-    metrics = calculate_metrics(merged)
-    merged['metrics'] = metrics
-
     return merged
+
+def calculate_metrics(analysis_results: Dict[str, Any]) -> Dict[str, float]:
+    """Calculate analysis metrics."""
+    total_categories = len(ANALYSIS_CATEGORIES)
+    risky_categories = sum(1 for r in analysis_results.values() 
+                          if isinstance(r, dict) and r.get('risk_level') in ['High', 'Medium'])
+
+    financial_terms = sum(1 for r in analysis_results.values() 
+                         if isinstance(r, dict) and r.get('quoted_phrases')
+                         for q in r.get('quoted_phrases', []) if q.get('is_financial'))
+
+    unusual_terms = sum(1 for r in analysis_results.values()
+                       if isinstance(r, dict) and r.get('quoted_phrases')
+                       for q in r.get('quoted_phrases', []) if not q.get('is_financial'))
+
+    return {
+        'complexity_score': (risky_categories / total_categories) * 100,
+        'financial_impact': (financial_terms / max(1, financial_terms + unusual_terms)) * 100,
+        'unusual_terms_ratio': (unusual_terms / max(1, len(analysis_results))) * 100
+    }
