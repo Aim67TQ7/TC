@@ -18,25 +18,42 @@ def apply_custom_styles():
             color: #00CC00;
             font-weight: bold;
         }
+        .risk-none {
+            color: #0066FF;
+            font-weight: bold;
+        }
         .section-header {
             font-size: 20px;
             font-weight: bold;
             margin-top: 20px;
             margin-bottom: 10px;
         }
-        .result-box {
-            padding: 20px;
+        .category-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            margin: 20px 0;
+        }
+        .category-item {
+            padding: 10px;
             border-radius: 5px;
             background-color: #F8F9FA;
-            margin: 10px 0;
+            margin: 5px 0;
+        }
+        .findings-text {
+            margin-top: 5px;
+            font-size: 14px;
+            color: #666;
         }
         </style>
     """, unsafe_allow_html=True)
 
-def show_risk_level(risk_level):
+def show_risk_indicator(risk_level):
     if risk_level == "High":
-        return '<span class="risk-high">⚠️ High Risk</span>'
+        return '🔴'  # Red circle for high risk
     elif risk_level == "Medium":
-        return '<span class="risk-medium">⚠️ Medium Risk</span>'
+        return '🟡'  # Yellow circle for medium risk
+    elif risk_level == "Low":
+        return '🟢'  # Green circle for low risk
     else:
-        return '<span class="risk-low">✓ Low Risk</span>'
+        return '🔵'  # Blue circle for not mentioned
