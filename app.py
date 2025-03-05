@@ -1,9 +1,41 @@
 import streamlit as st
 import os
-import pandas as pd
 from utils import extract_text_from_file, generate_pdf_report, generate_csv_report
-from analyzer import analyze_document, ANALYSIS_CATEGORIES
+from analyzer import (
+    analyze_document, 
+    ANALYSIS_CATEGORIES, 
+    COMPLIANCE_FRAMEWORKS,
+    check_compliance
+)
 from styles import apply_custom_styles, show_risk_indicator
+import anthropic
+
+def chat_with_ai(text: str, question: str) -> str:
+    """Have a conversation about specific terms in the document."""
+    client = anthropic.Anthropic(api_key=os.getenv('ANTHROPIC_API_KEY'))
+
+    prompt = f"""
+    Given this Terms and Conditions document, please answer the following question:
+
+    Document:
+    {text}
+
+    Question: {question}
+
+    Provide a clear, concise answer based on the document content.
+    If the information isn't found in the document, clearly state that.
+    """
+
+    try:
+        response = client.messages.create(
+            model="claude-3-5-sonnet-20241022",
+            max_tokens=1000,
+            temperature=0,
+            messages=[{"role": "user", "content": prompt}]
+        )
+        return response.content[0].text if response.content else "Sorry, I couldn't generate a response."
+    except Exception as e:
+        return f"Error: {str(e)}"
 
 def main():
     apply_custom_styles()
@@ -110,26 +142,72 @@ def main():
                                 }
                                 st.markdown(f"**Risk Level:** {result['risk_level']} - {risk_explanations[result['risk_level']]}")
 
-                # Download options
-                st.markdown("### Download Reports")
-                col1, col2 = st.columns(2)
-                with col1:
-                    pdf_report = generate_pdf_report(analysis_results)
-                    st.download_button(
-                        "Download PDF Report",
-                        pdf_report,
-                        "tc_analysis_report.pdf",
-                        "application/pdf"
-                    )
+        # Add Compliance Check section
+        st.markdown("### Compliance Analysis")
 
-                with col2:
-                    csv_report = generate_csv_report(analysis_results)
-                    st.download_button(
-                        "Download CSV Report",
-                        csv_report,
-                        "tc_analysis_report.csv",
-                        "text/csv"
-                    )
+        # Select compliance frameworks to check
+        selected_frameworks = st.multiselect(
+            "Select compliance frameworks to check against:",
+            list(COMPLIANCE_FRAMEWORKS.keys()),
+            default=["GDPR"]
+        )
+
+        if st.button("Check Compliance"):
+            for framework in selected_frameworks:
+                with st.spinner(f"Checking {framework} compliance..."):
+                    compliance_results = check_compliance(document_text, framework)
+
+                    # Display compliance results
+                    st.subheader(f"{framework} Compliance")
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        st.metric("Compliance Score", f"{compliance_results['score']}%")
+                    with col2:
+                        status_color = {
+                            "Compliant": "green",
+                            "Partially Compliant": "orange",
+                            "Non-Compliant": "red"
+                        }.get(compliance_results['status'], "gray")
+                        st.markdown(f"Status: :{status_color}[{compliance_results['status']}]")
+
+                    with st.expander("Detailed Findings"):
+                        st.markdown("**Key Findings:**")
+                        st.write(compliance_results['findings'])
+                        st.markdown("**Gaps Identified:**")
+                        st.write(compliance_results['gaps'])
+                        st.markdown("**Recommendations:**")
+                        st.write(compliance_results['recommendations'])
+
+        # Add AI Conversation section
+        st.markdown("### Ask Questions About the Document")
+        user_question = st.text_input("What would you like to know about this document?")
+
+        if user_question and st.button("Ask AI"):
+            with st.spinner("Getting answer..."):
+                answer = chat_with_ai(document_text, user_question)
+                st.markdown("**Answer:**")
+                st.write(answer)
+
+        # Download options
+        st.markdown("### Download Reports")
+        col1, col2 = st.columns(2)
+        with col1:
+            pdf_report = generate_pdf_report(analysis_results)
+            st.download_button(
+                "Download PDF Report",
+                pdf_report,
+                "tc_analysis_report.pdf",
+                "application/pdf"
+            )
+
+        with col2:
+            csv_report = generate_csv_report(analysis_results)
+            st.download_button(
+                "Download CSV Report",
+                csv_report,
+                "tc_analysis_report.csv",
+                "text/csv"
+            )
 
 if __name__ == "__main__":
     main()
