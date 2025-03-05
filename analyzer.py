@@ -5,91 +5,6 @@ import re
 from typing import Dict, List, Any
 import langdetect
 
-# Add compliance frameworks
-COMPLIANCE_FRAMEWORKS = {
-    'GDPR': [
-        'data_processing',
-        'data_protection',
-        'user_consent',
-        'right_to_erasure',
-        'data_portability',
-        'breach_notification',
-        'privacy_rights'
-    ],
-    'CCPA': [
-        'personal_information',
-        'opt_out_rights',
-        'data_sale',
-        'privacy_notice',
-        'consumer_rights',
-        'data_collection'
-    ],
-    'HIPAA': [
-        'health_information',
-        'privacy_practices',
-        'security_measures',
-        'patient_rights',
-        'data_safeguards'
-    ]
-}
-
-def check_compliance(text: str, framework: str) -> Dict[str, Any]:
-    """Check document compliance against a specific framework."""
-    client = anthropic.Anthropic(api_key=os.getenv('ANTHROPIC_API_KEY'))
-
-    prompt = f"""
-    Analyze this Terms and Conditions document for compliance with {framework} requirements.
-    Focus on identifying areas that align with or deviate from {framework} requirements.
-
-    Provide your analysis in this format:
-    ###COMPLIANCE_STATUS###
-    OVERALL: [Compliant/Partially Compliant/Non-Compliant]
-    SCORE: [0-100]
-    FINDINGS: [Key findings about compliance]
-    GAPS: [List missing or inadequate elements]
-    RECOMMENDATIONS: [Specific recommendations for improvement]
-
-    Document text:
-    {text}
-
-    Key areas to check for {framework}:
-    {', '.join(COMPLIANCE_FRAMEWORKS[framework])}
-    """
-
-    try:
-        response = client.messages.create(
-            model="claude-3-5-sonnet-20241022",
-            max_tokens=1500,
-            temperature=0,
-            messages=[{"role": "user", "content": prompt}]
-        )
-
-        content = response.content[0].text if response.content else ""
-
-        # Extract compliance information
-        status_match = re.search(r"OVERALL:\s*(Compliant|Partially Compliant|Non-Compliant)", content)
-        score_match = re.search(r"SCORE:\s*(\d+)", content)
-        findings_match = re.search(r"FINDINGS:\s*(.+?)(?=GAPS:|$)", content, re.DOTALL)
-        gaps_match = re.search(r"GAPS:\s*(.+?)(?=RECOMMENDATIONS:|$)", content, re.DOTALL)
-        recommendations_match = re.search(r"RECOMMENDATIONS:\s*(.+?)(?=$)", content, re.DOTALL)
-
-        return {
-            'status': status_match.group(1) if status_match else "Unknown",
-            'score': int(score_match.group(1)) if score_match else 0,
-            'findings': findings_match.group(1).strip() if findings_match else "",
-            'gaps': gaps_match.group(1).strip() if gaps_match else "",
-            'recommendations': recommendations_match.group(1).strip() if recommendations_match else ""
-        }
-    except Exception as e:
-        st.error(f"Error checking {framework} compliance: {str(e)}")
-        return {
-            'status': "Error",
-            'score': 0,
-            'findings': f"Error analyzing compliance: {str(e)}",
-            'gaps': "",
-            'recommendations': ""
-        }
-
 def detect_language(text: str) -> str:
     """Detect the language of the document."""
     try:
@@ -200,11 +115,6 @@ def analyze_chunk(text: str) -> Dict[str, Any]:
             'length': len(text),
             'required_translation': detect_language(text) != 'en'
         }
-
-        # Add compliance checks here.  This needs to be fleshed out based on specific requirements.
-        for framework in COMPLIANCE_FRAMEWORKS:
-            compliance_results = check_compliance(text, framework)
-            analysis_results[f"{framework}_compliance"] = compliance_results
 
         return analysis_results
 
@@ -345,9 +255,9 @@ def calculate_metrics(analysis_results: Dict[str, Any]) -> Dict[str, float]:
     """Calculate various metrics based on the analysis results."""
     total_categories = len(ANALYSIS_CATEGORIES)
     risky_categories = sum(1 for r in analysis_results.values() if r['risk_level'] in ['High', 'Medium'])
-    financial_terms = sum(1 for r in analysis_results.values()
+    financial_terms = sum(1 for r in analysis_results.values() 
                          for q in r['quoted_phrases'] if q['is_financial'])
-    unusual_terms = sum(1 for r in analysis_results.values()
+    unusual_terms = sum(1 for r in analysis_results.values() 
                        for q in r['quoted_phrases'] if not q['is_financial'])
 
     return {
