@@ -43,37 +43,37 @@ def extract_text_from_file(uploaded_file):
 def generate_pdf_report(analysis_results):
     pdf = FPDF()
     pdf.add_page()
-    pdf.set_font("Arial", size=12)
 
-    # Title
+    # Header
     pdf.set_font("Arial", 'B', 16)
-    pdf.cell(200, 10, txt="Terms and Conditions Analysis Report", ln=True, align='C')
-    pdf.ln(10)
+    pdf.cell(200, 10, txt="Terms and Conditions - Agent Analysis Report", ln=True, align='C')
+    pdf.line(10, 20, 200, 20)  # Add a horizontal line under header
+    pdf.ln(5)
 
-    # Add metrics summary if available
+    # Analysis Metrics Summary
     if 'metrics' in analysis_results:
         metrics = analysis_results['metrics']
-        pdf.set_font("Arial", 'B', 14)
-        pdf.cell(200, 10, txt="Analysis Metrics", ln=True)
-        pdf.set_font("Arial", size=12)
-        pdf.multi_cell(0, 10, txt=f"Complexity Score: {metrics['complexity_score']:.1f}%")
-        pdf.multi_cell(0, 10, txt=f"Financial Impact: {metrics['financial_impact']:.1f}%")
-        pdf.multi_cell(0, 10, txt=f"Unusual Terms Ratio: {metrics['unusual_terms_ratio']:.1f}%")
-        pdf.ln(10)
+        pdf.set_font("Arial", 'B', 12)
+        pdf.cell(200, 10, txt="Analysis Summary", ln=True)
+        pdf.set_font("Arial", size=10)
+        pdf.cell(60, 8, txt=f"Complexity Score: {metrics['complexity_score']:.1f}%", border=1)
+        pdf.cell(60, 8, txt=f"Financial Impact: {metrics['financial_impact']:.1f}%", border=1)
+        pdf.cell(60, 8, txt=f"Unusual Terms: {metrics['unusual_terms_ratio']:.1f}%", border=1, ln=True)
+        pdf.ln(5)
 
-    # Section summaries
+    # Section summaries with compact layout
     sections = {
-        "Core Terms": "These fundamental elements form the backbone of the agreement, establishing basic rights, responsibilities, and operational framework.",
-        "Quality & Compliance": "This section evaluates regulatory adherence, quality standards, and compliance measures that ensure service reliability and legal conformity.",
-        "Delivery & Fulfillment": "These terms outline the logistics, responsibilities, and processes for product/service delivery and customer satisfaction."
+        "Core Terms": ANALYSIS_CATEGORIES[:14],
+        "Quality & Compliance": ANALYSIS_CATEGORIES[14:22],
+        "Delivery & Fulfillment": ANALYSIS_CATEGORIES[22:]
     }
 
     current_section = None
     for category, details in analysis_results.items():
-        if category == 'metrics':
+        if category == 'metrics' or category == 'metadata':
             continue
 
-        # Determine which section this category belongs to
+        # Determine section
         if category in ANALYSIS_CATEGORIES[:14]:
             section = "Core Terms"
         elif category in ANALYSIS_CATEGORIES[14:22]:
@@ -81,30 +81,38 @@ def generate_pdf_report(analysis_results):
         else:
             section = "Delivery & Fulfillment"
 
-        # Add section header and summary if we're starting a new section
+        # Add section header if new section
         if section != current_section:
             current_section = section
-            pdf.set_font("Arial", 'B', 14)
-            pdf.cell(200, 10, txt=section, ln=True)
-            pdf.set_font("Arial", 'I', 12)
-            pdf.multi_cell(0, 10, txt=sections[section])
-            pdf.ln(5)
-            pdf.set_font("Arial", size=12)
+            pdf.set_font("Arial", 'B', 11)
+            pdf.cell(200, 8, txt=section, ln=True, fill=True)
+            pdf.set_font("Arial", size=9)
 
+        # Only include high and medium risk items
         if details['risk_level'] in ['High', 'Medium']:
-            pdf.set_font("Arial", 'B', 12)
-            pdf.cell(200, 10, txt=category, ln=True)
-            pdf.set_font("Arial", size=12)
-            pdf.multi_cell(0, 10, txt=f"Risk Level: {details['risk_level']}")
-            pdf.multi_cell(0, 10, txt=f"Findings: {details['findings']}")
+            # Category name with risk level
+            pdf.set_font("Arial", 'B', 10)
+            risk_indicator = "[!]" if details['risk_level'] == "High" else "[*]"
+            pdf.cell(200, 6, txt=f"{risk_indicator} {category}", ln=True)
 
-            # Add quoted phrases with ASCII indicators instead of emoji
+            # Findings
+            pdf.set_font("Arial", size=9)
+            pdf.multi_cell(0, 4, txt=f"Findings: {details['findings']}")
+
+            # Quoted terms
             if details['quoted_phrases']:
-                pdf.multi_cell(0, 10, txt="Notable Terms:")
+                terms = []
                 for phrase in details['quoted_phrases']:
-                    marker = "[!]" if phrase['is_financial'] else "[*]"  # ASCII markers instead of emoji
-                    pdf.multi_cell(0, 10, txt=f"{marker} {phrase['text']}")
-            pdf.ln(5)
+                    marker = "[F]" if phrase['is_financial'] else "[-]"
+                    terms.append(f"{marker} {phrase['text']}")
+                pdf.multi_cell(0, 4, txt="Terms: " + "\n".join(terms))
+
+            pdf.ln(2)
+
+    # Add legend at the bottom
+    pdf.ln(5)
+    pdf.set_font("Arial", 'I', 8)
+    pdf.multi_cell(0, 4, txt="Legend: [!] High Risk  [*] Medium Risk  [F] Financial Term  [-] Non-Financial Term")
 
     return pdf.output(dest='S').encode('latin-1')
 
