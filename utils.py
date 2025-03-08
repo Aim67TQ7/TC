@@ -3,28 +3,42 @@ import PyPDF2
 from docx import Document
 import pandas as pd
 from fpdf import FPDF
+import streamlit as st
 
 def extract_text_from_pdf(file):
-    pdf_reader = PyPDF2.PdfReader(file)
-    text = ""
-    for page in pdf_reader.pages:
-        text += page.extract_text()
-    return text
+    try:
+        pdf_reader = PyPDF2.PdfReader(file)
+        text = ""
+        for page in pdf_reader.pages:
+            text += page.extract_text()
+        return text
+    except Exception as e:
+        st.error(f"Error extracting text from PDF: {str(e)}")
+        return None
 
 def extract_text_from_docx(file):
-    doc = Document(file)
-    text = ""
-    for paragraph in doc.paragraphs:
-        text += paragraph.text + "\n"
-    return text
+    try:
+        doc = Document(file)
+        text = ""
+        for paragraph in doc.paragraphs:
+            text += paragraph.text + "\n"
+        return text
+    except Exception as e:
+        st.error(f"Error extracting text from DOCX: {str(e)}")
+        return None
 
 def extract_text_from_file(uploaded_file):
-    if uploaded_file.type == "application/pdf":
-        return extract_text_from_pdf(uploaded_file)
-    elif uploaded_file.type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
-        return extract_text_from_docx(uploaded_file)
-    else:
-        return uploaded_file.getvalue().decode("utf-8")
+    try:
+        if uploaded_file.type == "application/pdf":
+            return extract_text_from_pdf(uploaded_file)
+        elif uploaded_file.type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+            return extract_text_from_docx(uploaded_file)
+        else:
+            # For text files
+            return uploaded_file.getvalue().decode("utf-8")
+    except Exception as e:
+        st.error(f"Error extracting text from file: {str(e)}")
+        return None
 
 def generate_pdf_report(analysis_results):
     pdf = FPDF()
