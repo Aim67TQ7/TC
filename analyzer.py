@@ -174,7 +174,7 @@ def analyze_chunk(text: str) -> Dict[str, Any]:
         """
 
         response = client.messages.create(
-            model="claude-3-opus",  # Updated to use the correct model name
+            model="claude-3-5-sonnet-20241022",  # Using the previously working model
             max_tokens=1500,
             temperature=0,
             messages=[{"role": "user", "content": prompt}]
