@@ -9,8 +9,6 @@ def main():
     apply_custom_styles()
 
     st.title("AI Analysis of Terms and Conditions")
-    st.markdown("Upload your T&C document for comprehensive analysis across key areas of concern.")
-
     uploaded_file = st.file_uploader("", type=["pdf", "docx", "txt"])
 
     if uploaded_file:
