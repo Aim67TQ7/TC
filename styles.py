@@ -25,7 +25,7 @@ def apply_custom_styles():
         .section-header {
             font-size: 24px;
             font-weight: bold;
-            margin-top: 20px;
+            margin-top: 5px;
             margin-bottom: 10px;
             color: #262730;
         }
@@ -47,6 +47,10 @@ def apply_custom_styles():
         }
         div.stExpander {
             margin-bottom: 3px;
+        }
+        /* Remove extra space after title */
+        .st-emotion-cache-1629p8f h1 {
+            margin-bottom: 0.5rem;
         }
         </style>
     """, unsafe_allow_html=True)

@@ -11,10 +11,7 @@ def main():
     st.title("AI Analysis of Terms and Conditions")
     st.markdown("Upload your T&C document for comprehensive analysis across key areas of concern.")
 
-    uploaded_file = st.file_uploader(
-        "Upload your document (PDF, DOCX, or TXT)", 
-        type=["pdf", "docx", "txt"]
-    )
+    uploaded_file = st.file_uploader("", type=["pdf", "docx", "txt"])
 
     if uploaded_file:
         try:
