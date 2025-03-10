@@ -40,14 +40,20 @@ def extract_text_from_file(uploaded_file):
         st.error(f"Error extracting text from file: {str(e)}")
         return None
 
-def generate_pdf_report(analysis_results):
+def generate_pdf_report(analysis_results, filename=None):
     pdf = FPDF()
     pdf.add_page()
 
     # Header
     pdf.set_font("Arial", 'B', 16)
     pdf.cell(200, 10, txt="AI Analysis of Terms and Conditions - Report", ln=True, align='C')
-    pdf.line(10, 20, 200, 20)  # Add a horizontal line under header
+
+    # Add filename if provided
+    if filename:
+        pdf.set_font("Arial", 'I', 11)
+        pdf.cell(200, 8, txt=f"Document: {filename}", ln=True, align='C')
+
+    pdf.line(10, pdf.get_y(), 200, pdf.get_y())  # Add a horizontal line under header
     pdf.ln(5)
 
     # Analysis Metrics Summary
