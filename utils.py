@@ -46,7 +46,7 @@ def generate_pdf_report(analysis_results):
 
     # Header
     pdf.set_font("Arial", 'B', 16)
-    pdf.cell(200, 10, txt="AI-Powered Terms and Conditions Analysis - Report", ln=True, align='C')
+    pdf.cell(200, 10, txt="AI Analysis of Terms and Conditions - Report", ln=True, align='C')
     pdf.line(10, 20, 200, 20)  # Add a horizontal line under header
     pdf.ln(5)
 
