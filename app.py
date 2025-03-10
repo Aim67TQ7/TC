@@ -22,7 +22,7 @@ def main():
     # Add Start New Analysis button that will clear the session state
     if st.button("Start New Analysis"):
         st.session_state.clear()
-        st.experimental_rerun()
+        st.rerun()  
 
     if uploaded_file:
         try:
