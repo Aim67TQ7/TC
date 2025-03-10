@@ -1,5 +1,5 @@
 import os
-import requests
+import anthropic
 import streamlit as st
 import re
 from typing import Dict, List, Any
@@ -41,7 +41,7 @@ ANALYSIS_CATEGORIES = [
     "Failed Delivery Handling"
 ]
 
-risk_levels = ['None', 'Low', 'Medium', 'High']
+risk_levels = ['None', 'Low', 'Medium', 'High', 'Error']  # Added 'Error' to valid risk levels
 
 def detect_language(text: str) -> str:
     """Detect the language of the document."""
@@ -138,64 +138,53 @@ def analyze_document(text: str) -> Dict[str, Any]:
         return results
 
 def analyze_chunk(text: str) -> Dict[str, Any]:
-    """Analyze a chunk of text using OpenRouter API."""
-    url = "https://openrouter.ai/api/v1/chat/completions"
-
-    headers = {
-        "Authorization": f"Bearer {os.getenv('OPENROUTER_API_KEY')}",
-        "Content-Type": "application/json",
-        "HTTP-Referer": "https://replit.com",
-        "X-Title": "T&C Analysis Agent"
-    }
-
-    prompt = f"""
-    Analyze this Terms and Conditions document, focusing on identifying unusual or special terms that deviate from standard T&Cs.
-    Pay special attention to financial terms or requirements that have monetary impact.
-
-    For each category, provide your analysis in this EXACT format with these EXACT section markers:
-
-    ###[Category Name]###
-    RISK: [High/Medium/Low/None]
-    FINDINGS: [Brief analysis explaining why terms are unusual/special]
-    QUOTES: [List each unusual term in quotes, one per line]
-
-    Example format:
-    ###Payment Terms###
-    RISK: High
-    FINDINGS: Contains unusual fee structures and non-standard payment requirements
-    QUOTES: "Monthly service fee of $99.99 non-refundable after 3 days"
-    "Late payments subject to 25% compound interest"
-
-    Document text:
-    {text}
-
-    Categories to analyze:
-    {', '.join(ANALYSIS_CATEGORIES)}
-
-    Guidelines:
-    - Mark any terms involving fees, payments, or financial obligations
-    - Highlight unusual requirements or non-standard conditions
-    - Quote exact phrases from the document
-    - Start each category with ###[Category Name]### exactly as shown
-    """
-
+    """Analyze a chunk of text using Anthropic API."""
     try:
-        response = requests.post(
-            url,
-            headers=headers,
-            json={
-                "model": "anthropic/claude-3-sonnet",
-                "messages": [{"role": "user", "content": prompt}],
-            }
-        )
-        response.raise_for_status()
-        data = response.json()
+        client = anthropic.Anthropic(api_key=os.getenv('ANTHROPIC_API_KEY'))
 
-        if not data or 'choices' not in data or not data['choices']:
-            st.error("Invalid response structure from API")
+        prompt = f"""
+        Analyze this Terms and Conditions document, focusing on identifying unusual or special terms that deviate from standard T&Cs.
+        Pay special attention to financial terms or requirements that have monetary impact.
+
+        For each category, provide your analysis in this EXACT format with these EXACT section markers:
+
+        ###[Category Name]###
+        RISK: [High/Medium/Low/None]
+        FINDINGS: [Brief analysis explaining why terms are unusual/special]
+        QUOTES: [List each unusual term in quotes, one per line]
+
+        Example format:
+        ###Payment Terms###
+        RISK: High
+        FINDINGS: Contains unusual fee structures and non-standard payment requirements
+        QUOTES: "Monthly service fee of $99.99 non-refundable after 3 days"
+        "Late payments subject to 25% compound interest"
+
+        Document text:
+        {text}
+
+        Categories to analyze:
+        {', '.join(ANALYSIS_CATEGORIES)}
+
+        Guidelines:
+        - Mark any terms involving fees, payments, or financial obligations
+        - Highlight unusual requirements or non-standard conditions
+        - Quote exact phrases from the document
+        - Start each category with ###[Category Name]### exactly as shown
+        """
+
+        response = client.messages.create(
+            model="claude-3-sonnet",  # Using the latest model
+            max_tokens=1500,
+            temperature=0,
+            messages=[{"role": "user", "content": prompt}]
+        )
+
+        if not response or not hasattr(response, 'content') or not response.content:
+            st.error("Invalid response structure from Anthropic API")
             return {cat: {'risk_level': 'Error', 'findings': 'Invalid response', 'quoted_phrases': []} for cat in ANALYSIS_CATEGORIES}
 
-        content = data['choices'][0]['message']['content']
+        content = response.content[0].text if response.content else ""
         return process_analysis_response(content)
 
     except Exception as e:
@@ -264,9 +253,12 @@ def merge_analysis_results(results_list: List[Dict[str, Any]]) -> Dict[str, Any]
         for result in results_list:
             if category in result:
                 cat_data = result[category]
-                # Take highest risk level
-                if risk_levels.index(cat_data.get('risk_level', 'None')) > risk_levels.index(merged[category]['risk_level']):
-                    merged[category]['risk_level'] = cat_data['risk_level']
+                # Take highest risk level, safely handling 'Error' cases
+                current_risk = cat_data.get('risk_level', 'None')
+                if current_risk not in risk_levels:
+                    current_risk = 'Error'
+                if risk_levels.index(current_risk) > risk_levels.index(merged[category]['risk_level']):
+                    merged[category]['risk_level'] = current_risk
 
                 # Combine findings
                 if cat_data.get('findings') and cat_data['findings'] not in ["No specific findings.", "Not mentioned in document."]:
