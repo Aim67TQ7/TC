@@ -5,6 +5,44 @@ import re
 from typing import Dict, List, Any
 import langdetect
 
+# Constants
+ANALYSIS_CATEGORIES = [
+    "Introduction and Overview",
+    "User Rights and Responsibilities",
+    "Privacy Policy and Data Usage",
+    "Payment Terms",
+    "Intellectual Property Rights",
+    "Limitation of Liability",
+    "Termination and Suspension",
+    "Dispute Resolution",
+    "Amendments and Updates",
+    "Governing Law",
+    "Force Majeure",
+    "Severability",
+    "User Consent for Marketing",
+    "Specific Rights for Certain Regions",
+    "Quality Assurance and Performance",
+    "Audits and Monitoring",
+    "Regulatory Compliance",
+    "Product Safety Certifications",
+    "Liability for Regulatory Breaches",
+    "Third-Party Audits",
+    "International Standards Compliance",
+    "Regulatory Violation Recourse",
+    "Delivery Process and Timeframes",
+    "Delivery Costs",
+    "Delivery Risk and Responsibility",
+    "Delayed or Failed Deliveries",
+    "Delivery Location and Restrictions",
+    "International Delivery",
+    "Returns and Delivery Failures",
+    "Acceptance of Delivery",
+    "Subscription Services Delivery",
+    "Failed Delivery Handling"
+]
+
+risk_levels = ['None', 'Low', 'Medium', 'High']
+
 def detect_language(text: str) -> str:
     """Detect the language of the document."""
     try:
@@ -14,7 +52,6 @@ def detect_language(text: str) -> str:
 
 def chunk_document(text: str, chunk_size: int = 8000) -> List[str]:
     """Split document into manageable chunks."""
-    # Split on paragraph breaks to keep context
     paragraphs = text.split('\n\n')
     chunks = []
     current_chunk = ""
@@ -31,7 +68,40 @@ def chunk_document(text: str, chunk_size: int = 8000) -> List[str]:
 
     return chunks
 
+def is_financial_term(phrase: str) -> bool:
+    """Check if a phrase contains financial terms."""
+    financial_keywords = [
+        'fee', 'cost', 'price', 'payment', 'charge', 'refund', 'credit',
+        'billing', 'subscription', 'money', 'financial', 'dollar', 'rate',
+        'expense', 'pay', 'compensation', 'penalty', 'fine'
+    ]
+    return any(keyword in phrase.lower() for keyword in financial_keywords)
+
+def calculate_metrics(analysis_results: Dict[str, Any]) -> Dict[str, float]:
+    """Calculate various metrics based on the analysis results."""
+    total_categories = len(ANALYSIS_CATEGORIES)
+    risky_categories = sum(1 for k, r in analysis_results.items() 
+                          if k not in ['metrics', 'metadata'] and r.get('risk_level') in ['High', 'Medium'])
+
+    # Count financial and unusual terms only from actual category results
+    financial_terms = sum(1 for k, r in analysis_results.items()
+                         if k not in ['metrics', 'metadata']
+                         for q in r.get('quoted_phrases', [])
+                         if q.get('is_financial', False))
+
+    unusual_terms = sum(1 for k, r in analysis_results.items()
+                       if k not in ['metrics', 'metadata']
+                       for q in r.get('quoted_phrases', [])
+                       if not q.get('is_financial', True))
+
+    return {
+        'complexity_score': (risky_categories / total_categories) * 100,
+        'financial_impact': (financial_terms / max(1, financial_terms + unusual_terms)) * 100,
+        'unusual_terms_ratio': (unusual_terms / max(1, len([k for k in analysis_results.keys() if k not in ['metrics', 'metadata']]))) * 100
+    }
+
 def analyze_document(text: str) -> Dict[str, Any]:
+    """Main function to analyze the document."""
     # Check document length and language
     is_long_document = len(text) > 8000
     detected_lang = detect_language(text)
@@ -49,20 +119,33 @@ def analyze_document(text: str) -> Dict[str, Any]:
             st.write(f"Processing chunk {i} of {len(chunks)}...")
             chunk_results = analyze_chunk(chunk)
             all_results.append(chunk_results)
-        return merge_analysis_results(all_results)
+        merged_results = merge_analysis_results(all_results)
+
+        # Add metadata
+        merged_results['metadata'] = {
+            'language': detected_lang,
+            'length': len(text),
+            'required_translation': requires_translation
+        }
+        return merged_results
     else:
-        return analyze_chunk(text)
+        results = analyze_chunk(text)
+        results['metadata'] = {
+            'language': detected_lang,
+            'length': len(text),
+            'required_translation': requires_translation
+        }
+        return results
 
 def analyze_chunk(text: str) -> Dict[str, Any]:
     """Analyze a chunk of text using OpenRouter API."""
-
     url = "https://openrouter.ai/api/v1/chat/completions"
 
     headers = {
         "Authorization": f"Bearer {os.getenv('OPENROUTER_API_KEY')}",
         "Content-Type": "application/json",
-        "HTTP-Referer": "https://replit.com",  # Required by OpenRouter
-        "X-Title": "T&C Analysis Agent"  # Optional but good practice
+        "HTTP-Referer": "https://replit.com",
+        "X-Title": "T&C Analysis Agent"
     }
 
     prompt = f"""
@@ -97,46 +180,30 @@ def analyze_chunk(text: str) -> Dict[str, Any]:
     """
 
     try:
-        # Make API call with error handling
-        try:
-            response = requests.post(
-                url,
-                headers=headers,
-                json={
-                    "model": "anthropic/claude-3-sonnet",  # Using Claude through OpenRouter
-                    "messages": [{"role": "user", "content": prompt}],
-                }
-            )
-            response.raise_for_status()  # Raise exception for bad status codes
-            data = response.json()
-        except Exception as api_error:
-            st.error(f"API call failed: {str(api_error)}")
-            return {cat: {'risk_level': 'Error', 'findings': 'API call failed', 'quoted_phrases': []} for cat in ANALYSIS_CATEGORIES}
+        response = requests.post(
+            url,
+            headers=headers,
+            json={
+                "model": "anthropic/claude-3-sonnet",
+                "messages": [{"role": "user", "content": prompt}],
+            }
+        )
+        response.raise_for_status()
+        data = response.json()
 
-        # Process response
         if not data or 'choices' not in data or not data['choices']:
             st.error("Invalid response structure from API")
             return {cat: {'risk_level': 'Error', 'findings': 'Invalid response', 'quoted_phrases': []} for cat in ANALYSIS_CATEGORIES}
 
         content = data['choices'][0]['message']['content']
-
-        analysis_results = process_analysis_response(content)
-
-        # Add metadata about document processing
-        analysis_results['metadata'] = {
-            'language': detect_language(text),
-            'length': len(text),
-            'required_translation': detect_language(text) != 'en'
-        }
-
-        return analysis_results
+        return process_analysis_response(content)
 
     except Exception as e:
         st.error(f"Error analyzing document: {str(e)}")
         return {cat: {'risk_level': 'Error', 'findings': 'Analysis failed', 'quoted_phrases': []} for cat in ANALYSIS_CATEGORIES}
 
 def process_analysis_response(content: str) -> Dict[str, Any]:
-    """Process Claude's response and extract structured analysis results."""
+    """Process API response and extract structured analysis results."""
     analysis_results = {}
 
     for category in ANALYSIS_CATEGORIES:
@@ -198,86 +265,25 @@ def merge_analysis_results(results_list: List[Dict[str, Any]]) -> Dict[str, Any]
             if category in result:
                 cat_data = result[category]
                 # Take highest risk level
-                if risk_levels.index(cat_data['risk_level']) > risk_levels.index(merged[category]['risk_level']):
+                if risk_levels.index(cat_data.get('risk_level', 'None')) > risk_levels.index(merged[category]['risk_level']):
                     merged[category]['risk_level'] = cat_data['risk_level']
 
                 # Combine findings
-                if cat_data['findings'] != "No specific findings." and cat_data['findings'] != "Not mentioned in document.":
+                if cat_data.get('findings') and cat_data['findings'] not in ["No specific findings.", "Not mentioned in document."]:
                     merged[category]['findings'].append(cat_data['findings'])
 
-                # Combine quoted phrases, avoiding duplicates
-                seen_phrases = {(q['text'], q['is_financial']) for q in merged[category]['quoted_phrases']}
-                for phrase in cat_data['quoted_phrases']:
-                    if (phrase['text'], phrase['is_financial']) not in seen_phrases:
-                        merged[category]['quoted_phrases'].append(phrase)
-                        seen_phrases.add((phrase['text'], phrase['is_financial']))
+                # Safely merge quoted phrases
+                if 'quoted_phrases' in cat_data:
+                    for phrase in cat_data['quoted_phrases']:
+                        if isinstance(phrase, dict) and 'text' in phrase and 'is_financial' in phrase:
+                            if not any(existing['text'] == phrase['text'] for existing in merged[category]['quoted_phrases']):
+                                merged[category]['quoted_phrases'].append(phrase)
 
-        # Clean up merged data
+        # Clean up findings
         merged[category]['findings'] = '\n'.join(merged[category]['findings']) if merged[category]['findings'] else "No specific findings."
 
-    # Calculate overall metrics
+    # Calculate metrics
     metrics = calculate_metrics(merged)
     merged['metrics'] = metrics
 
     return merged
-
-ANALYSIS_CATEGORIES = [
-    "Introduction and Overview",
-    "User Rights and Responsibilities",
-    "Privacy Policy and Data Usage",
-    "Payment Terms",
-    "Intellectual Property Rights",
-    "Limitation of Liability",
-    "Termination and Suspension",
-    "Dispute Resolution",
-    "Amendments and Updates",
-    "Governing Law",
-    "Force Majeure",
-    "Severability",
-    "User Consent for Marketing",
-    "Specific Rights for Certain Regions",
-    "Quality Assurance and Performance",
-    "Audits and Monitoring",
-    "Regulatory Compliance",
-    "Product Safety Certifications",
-    "Liability for Regulatory Breaches",
-    "Third-Party Audits",
-    "International Standards Compliance",
-    "Regulatory Violation Recourse",
-    "Delivery Process and Timeframes",
-    "Delivery Costs",
-    "Delivery Risk and Responsibility",
-    "Delayed or Failed Deliveries",
-    "Delivery Location and Restrictions",
-    "International Delivery",
-    "Returns and Delivery Failures",
-    "Acceptance of Delivery",
-    "Subscription Services Delivery",
-    "Failed Delivery Handling"
-]
-
-def is_financial_term(phrase: str) -> bool:
-    financial_keywords = [
-        'fee', 'cost', 'price', 'payment', 'charge', 'refund', 'credit',
-        'billing', 'subscription', 'money', 'financial', 'dollar', 'rate',
-        'expense', 'pay', 'compensation', 'penalty', 'fine'
-    ]
-    return any(keyword in phrase.lower() for keyword in financial_keywords)
-
-def calculate_metrics(analysis_results: Dict[str, Any]) -> Dict[str, float]:
-    """Calculate various metrics based on the analysis results."""
-    total_categories = len(ANALYSIS_CATEGORIES)
-    risky_categories = sum(1 for r in analysis_results.values() if r['risk_level'] in ['High', 'Medium'])
-    financial_terms = sum(1 for r in analysis_results.values() 
-                         for q in r['quoted_phrases'] if q['is_financial'])
-    unusual_terms = sum(1 for r in analysis_results.values() 
-                       for q in r['quoted_phrases'] if not q['is_financial'])
-
-    return {
-        'complexity_score': (risky_categories / total_categories) * 100,
-        'financial_impact': (financial_terms / max(1, financial_terms + unusual_terms)) * 100,
-        'unusual_terms_ratio': (unusual_terms / max(1, len(analysis_results))) * 100
-    }
-
-# Constants
-risk_levels = ['None', 'Low', 'Medium', 'High']
