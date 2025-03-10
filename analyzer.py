@@ -1,5 +1,5 @@
-import anthropic
 import os
+import requests
 import streamlit as st
 import re
 from typing import Dict, List, Any
@@ -54,7 +54,16 @@ def analyze_document(text: str) -> Dict[str, Any]:
         return analyze_chunk(text)
 
 def analyze_chunk(text: str) -> Dict[str, Any]:
-    client = anthropic.Anthropic(api_key=os.getenv('ANTHROPIC_API_KEY'))
+    """Analyze a chunk of text using OpenRouter API."""
+
+    url = "https://openrouter.ai/api/v1/chat/completions"
+
+    headers = {
+        "Authorization": f"Bearer {os.getenv('OPENROUTER_API_KEY')}",
+        "Content-Type": "application/json",
+        "HTTP-Referer": "https://replit.com",  # Required by OpenRouter
+        "X-Title": "T&C Analysis Agent"  # Optional but good practice
+    }
 
     prompt = f"""
     Analyze this Terms and Conditions document, focusing on identifying unusual or special terms that deviate from standard T&Cs.
@@ -90,22 +99,26 @@ def analyze_chunk(text: str) -> Dict[str, Any]:
     try:
         # Make API call with error handling
         try:
-            response = client.messages.create(
-                model="claude-3-5-sonnet-20241022",
-                max_tokens=1500,
-                temperature=0,
-                messages=[{"role": "user", "content": prompt}]
+            response = requests.post(
+                url,
+                headers=headers,
+                json={
+                    "model": "anthropic/claude-3-sonnet",  # Using Claude through OpenRouter
+                    "messages": [{"role": "user", "content": prompt}],
+                }
             )
+            response.raise_for_status()  # Raise exception for bad status codes
+            data = response.json()
         except Exception as api_error:
             st.error(f"API call failed: {str(api_error)}")
             return {cat: {'risk_level': 'Error', 'findings': 'API call failed', 'quoted_phrases': []} for cat in ANALYSIS_CATEGORIES}
 
         # Process response
-        if not response or not hasattr(response, 'content') or not response.content:
-            st.error("Invalid response structure from Claude")
+        if not data or 'choices' not in data or not data['choices']:
+            st.error("Invalid response structure from API")
             return {cat: {'risk_level': 'Error', 'findings': 'Invalid response', 'quoted_phrases': []} for cat in ANALYSIS_CATEGORIES}
 
-        content = response.content[0].text if response.content else ""
+        content = data['choices'][0]['message']['content']
 
         analysis_results = process_analysis_response(content)
 
