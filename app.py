@@ -9,7 +9,20 @@ def main():
     apply_custom_styles()
 
     st.title("AI Analysis of Terms and Conditions")
+
+    # Add privacy notice
+    st.markdown("""
+        <div style='font-size: 0.8em; color: #666; margin-bottom: 1em;'>
+        📋 Documents are processed in a temporary cache and are not stored on our servers.
+        </div>
+    """, unsafe_allow_html=True)
+
     uploaded_file = st.file_uploader("", type=["pdf", "docx", "txt"])
+
+    # Add Start New Analysis button that will clear the session state
+    if st.button("Start New Analysis"):
+        st.session_state.clear()
+        st.experimental_rerun()
 
     if uploaded_file:
         try:
@@ -56,9 +69,9 @@ def main():
 
                         # Count items by risk level (excluding metrics and metadata keys)
                         risk_counts = {
-                            "High": sum(1 for k, r in analysis_results.items() 
+                            "High": sum(1 for k, r in analysis_results.items()
                                         if k not in ['metrics', 'metadata'] and isinstance(r, dict) and r.get('risk_level') == "High"),
-                            "Medium": sum(1 for k, r in analysis_results.items() 
+                            "Medium": sum(1 for k, r in analysis_results.items()
                                         if k not in ['metrics', 'metadata'] and isinstance(r, dict) and r.get('risk_level') == "Medium")
                         }
 
@@ -100,8 +113,8 @@ def main():
                         # Only show sections with concerns
                         for section_name, categories in sections.items():
                             # Filter categories with medium or high risk in this section
-                            risky_categories = [cat for cat in categories 
-                                                if cat in analysis_results and 
+                            risky_categories = [cat for cat in categories
+                                                if cat in analysis_results and
                                                 isinstance(analysis_results[cat], dict) and
                                                 analysis_results[cat].get('risk_level') in ["High", "Medium"]]
 
@@ -136,7 +149,8 @@ def main():
                         st.markdown("### Download Reports")
                         col1, col2 = st.columns(2)
                         with col1:
-                            pdf_report = generate_pdf_report(analysis_results)
+                            # Pass filename to PDF generator
+                            pdf_report = generate_pdf_report(analysis_results, filename=uploaded_file.name)
                             st.download_button(
                                 "Download PDF Report",
                                 pdf_report,
