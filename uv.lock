@@ -868,6 +868,7 @@ dependencies = [
     { name = "pandas" },
     { name = "pypdf2" },
     { name = "python-docx" },
+    { name = "requests" },
     { name = "streamlit" },
 ]
 
@@ -881,6 +882,7 @@ requires-dist = [
     { name = "pandas", specifier = ">=2.2.3" },
     { name = "pypdf2", specifier = ">=3.0.1" },
     { name = "python-docx", specifier = ">=1.1.2" },
+    { name = "requests", specifier = ">=2.32.3" },
     { name = "streamlit", specifier = ">=1.42.2" },
 ]
 
