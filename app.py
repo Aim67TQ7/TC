@@ -8,7 +8,7 @@ from styles import apply_custom_styles, show_risk_indicator
 def main():
     apply_custom_styles()
 
-    st.title("AI-Powered Terms and Conditions Analysis")
+    st.title("AI Analysis of Terms and Conditions")
     st.markdown("Upload your T&C document for comprehensive analysis across key areas of concern.")
 
     uploaded_file = st.file_uploader(
