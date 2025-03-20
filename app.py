@@ -31,7 +31,12 @@ def main():
                 document_text = extract_text_from_file(uploaded_file)
 
                 if not document_text:
-                    st.error("Could not extract text from the document. Please ensure it's a valid file.")
+                    # Use a more subtle error message instead of the standard error display
+                    st.markdown("""
+                        <div style='color: #555; padding: 10px;'>
+                        Could not extract text from the document. Please ensure it's a valid file.
+                        </div>
+                    """, unsafe_allow_html=True)
                     return
 
             # Store document text in session state
@@ -52,7 +57,11 @@ def main():
 
                         # Validate analysis results
                         if not analysis_results or not isinstance(analysis_results, dict):
-                            st.error("We encountered an issue analyzing the document. Please try again.")
+                            st.markdown("""
+                                <div style='color: #555; padding: 10px;'>
+                                We encountered an issue analyzing the document. Please try again.
+                                </div>
+                            """, unsafe_allow_html=True)
                             return
 
                         # Process results safely
@@ -68,11 +77,19 @@ def main():
                         if 'metadata' in analysis_results:
                             metadata = analysis_results['metadata']
                             if metadata.get('required_translation'):
-                                st.warning("⚠️ Document is not in English. Analysis includes translation, which may affect accuracy.")
+                                st.markdown("""
+                                    <div style='color: #856404; background-color: #fff3cd; padding: 10px; border-radius: 4px; margin-bottom: 10px;'>
+                                    ⚠️ Document is not in English. Analysis includes translation, which may affect accuracy.
+                                    </div>
+                                """, unsafe_allow_html=True)
 
                             # Show document stats
                             doc_length = metadata.get('length', 0)
-                            st.info(f"📄 Document Length: {doc_length:,} characters")
+                            st.markdown(f"""
+                                <div style='color: #0c5460; background-color: #d1ecf1; padding: 10px; border-radius: 4px; margin-bottom: 10px;'>
+                                📄 Document Length: {doc_length:,} characters
+                                </div>
+                            """, unsafe_allow_html=True)
 
                         # Count items by risk level (excluding metrics and metadata keys)
                         risk_counts = {
@@ -176,7 +193,11 @@ def main():
                                 "text/csv"
                             )
                     except KeyError as ke:
-                        st.warning("Processing some parts of the document analysis. Results may be partial.")
+                        st.markdown("""
+                            <div style='color: #856404; background-color: #fff3cd; padding: 10px; border-radius: 4px; margin-bottom: 10px;'>
+                            Processing some parts of the document analysis. Results may be partial.
+                            </div>
+                        """, unsafe_allow_html=True)
                         # Define analysis_results if it's not already defined
                         if not locals().get('analysis_results'):
                             analysis_results = {cat: {'risk_level': 'None', 'findings': 'Not analyzed.', 'quoted_phrases': []} for cat in ANALYSIS_CATEGORIES}
@@ -188,11 +209,19 @@ def main():
                                 'unusual_terms_ratio': 0.0
                             }
                     except Exception as e:
-                        st.error("An unexpected error occurred during analysis. Please try again.")
+                        st.markdown("""
+                            <div style='color: #555; padding: 10px;'>
+                            An unexpected error occurred during analysis. Please try again.
+                            </div>
+                        """, unsafe_allow_html=True)
                         return
 
         except Exception as e:
-            st.error("Error processing document. Please ensure the file is not corrupted and try again.")
+            st.markdown("""
+                <div style='color: #555; padding: 10px;'>
+                Error processing document. Please ensure the file is not corrupted and try again.
+                </div>
+            """, unsafe_allow_html=True)
             if os.getenv('REPLIT_ENVIRONMENT') == 'development':
                 st.write("Debug info:", type(e).__name__, str(e))
 

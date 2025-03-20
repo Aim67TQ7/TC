@@ -108,15 +108,24 @@ def analyze_document(text: str) -> Dict[str, Any]:
     requires_translation = detected_lang != 'en'
 
     if requires_translation:
-        st.warning("⚠️ Document appears to be in a non-English language. Translation will be performed, which may require additional processing time for thorough analysis.")
+        st.markdown("""
+            <div style='color: #856404; background-color: #fff3cd; padding: 10px; border-radius: 4px; margin-bottom: 10px;'>
+            ⚠️ Document appears to be in a non-English language. Translation will be performed, which may require additional processing time for thorough analysis.
+            </div>
+        """, unsafe_allow_html=True)
 
     if is_long_document:
-        st.info("📄 Document is lengthy and will be processed in chunks for optimal analysis. This may take a few moments.")
+        st.markdown("""
+            <div style='color: #0c5460; background-color: #d1ecf1; padding: 10px; border-radius: 4px; margin-bottom: 10px;'>
+            📄 Document is lengthy and will be processed in chunks for optimal analysis. This may take a few moments.
+            </div>
+        """, unsafe_allow_html=True)
         chunks = chunk_document(text)
         # Process chunks and merge results
         all_results = []
         for i, chunk in enumerate(chunks, 1):
-            st.write(f"Processing chunk {i} of {len(chunks)}...")
+            # Use a more subtle progress update
+            st.markdown(f"<div style='color: #555;'>Processing chunk {i} of {len(chunks)}...</div>", unsafe_allow_html=True)
             chunk_results = analyze_chunk(chunk)
             all_results.append(chunk_results)
         merged_results = merge_analysis_results(all_results)
@@ -187,7 +196,11 @@ def analyze_chunk(text: str) -> Dict[str, Any]:
                 )
                 
                 if not response or not hasattr(response, 'content') or not response.content:
-                    st.error("Invalid response structure from Anthropic API")
+                    st.markdown("""
+                        <div style='color: #555; padding: 10px;'>
+                        Invalid response structure from Anthropic API
+                        </div>
+                    """, unsafe_allow_html=True)
                     return {cat: {'risk_level': 'Error', 'findings': 'Invalid response', 'quoted_phrases': []} for cat in ANALYSIS_CATEGORIES}
                 
                 content = response.content[0].text if response.content else ""
@@ -196,26 +209,46 @@ def analyze_chunk(text: str) -> Dict[str, Any]:
             except anthropic.RateLimitError as rate_error:
                 # Handle rate limit (429) or overloaded (529) errors
                 if retry_count < max_retries - 1:
-                    st.warning(f"Anthropic API is busy. Retrying in 5 seconds... (Attempt {retry_count + 1}/{max_retries})")
+                    st.markdown(f"""
+                        <div style='color: #856404; background-color: #fff3cd; padding: 10px; border-radius: 4px; margin-bottom: 10px;'>
+                        Anthropic API is busy. Retrying in 5 seconds... (Attempt {retry_count + 1}/{max_retries})
+                        </div>
+                    """, unsafe_allow_html=True)
                     import time
                     time.sleep(5)  # Wait for 5 seconds before retrying
                     retry_count += 1
                 else:
-                    st.error("Anthropic API is currently overloaded. Please try again later.")
+                    st.markdown("""
+                        <div style='color: #555; padding: 10px;'>
+                        Anthropic API is currently overloaded. Please try again later.
+                        </div>
+                    """, unsafe_allow_html=True)
                     return {cat: {'risk_level': 'Error', 'findings': 'Anthropic API is currently overloaded. Please try again later.', 'quoted_phrases': []} for cat in ANALYSIS_CATEGORIES}
             
             except Exception as e:
                 # For any other error, don't retry but return a result to avoid None return
-                st.error(f"Error analyzing document: {str(e)}")
+                st.markdown(f"""
+                    <div style='color: #555; padding: 10px;'>
+                    Error analyzing document: {str(e)}
+                    </div>
+                """, unsafe_allow_html=True)
                 return {cat: {'risk_level': 'Error', 'findings': f'Analysis failed: {str(e)}', 'quoted_phrases': []} for cat in ANALYSIS_CATEGORIES}
 
     except Exception as e:
         error_message = str(e)
         if "529" in error_message and "overloaded" in error_message.lower():
-            st.error("Anthropic API is currently overloaded. Please try again later.")
+            st.markdown("""
+                <div style='color: #555; padding: 10px;'>
+                Anthropic API is currently overloaded. Please try again later.
+                </div>
+            """, unsafe_allow_html=True)
             return {cat: {'risk_level': 'Error', 'findings': 'Anthropic API is currently overloaded. Please try again later.', 'quoted_phrases': []} for cat in ANALYSIS_CATEGORIES}
         else:
-            st.error(f"Error analyzing document: {error_message}")
+            st.markdown(f"""
+                <div style='color: #555; padding: 10px;'>
+                Error analyzing document: {error_message}
+                </div>
+            """, unsafe_allow_html=True)
             return {cat: {'risk_level': 'Error', 'findings': 'Analysis failed', 'quoted_phrases': []} for cat in ANALYSIS_CATEGORIES}
 
 def process_analysis_response(content: str) -> Dict[str, Any]:
@@ -256,7 +289,11 @@ def process_analysis_response(content: str) -> Dict[str, Any]:
                 }
 
         except Exception as section_error:
-            st.error(f"Error processing section {category}: {str(section_error)}")
+            st.markdown(f"""
+                <div style='color: #555; padding: 10px;'>
+                Error processing section {category}: {str(section_error)}
+                </div>
+            """, unsafe_allow_html=True)
             analysis_results[category] = {
                 'risk_level': 'Error',
                 'findings': f'Error analyzing section: {str(section_error)}',
