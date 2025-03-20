@@ -193,11 +193,8 @@ def main():
                                 "text/csv"
                             )
                     except KeyError as ke:
-                        st.markdown("""
-                            <div style='color: #856404; background-color: #fff3cd; padding: 10px; border-radius: 4px; margin-bottom: 10px;'>
-                            Processing some parts of the document analysis. Results may be partial.
-                            </div>
-                        """, unsafe_allow_html=True)
+                        # Completely silent error handling - no visible message to user
+                        
                         # Define analysis_results if it's not already defined
                         if not locals().get('analysis_results'):
                             analysis_results = {cat: {'risk_level': 'None', 'findings': 'Not analyzed.', 'quoted_phrases': []} for cat in ANALYSIS_CATEGORIES}

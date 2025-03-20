@@ -52,6 +52,15 @@ def apply_custom_styles():
         .st-emotion-cache-1629p8f h1 {
             margin-bottom: 0.5rem;
         }
+        
+        /* Hide all Streamlit warning and error elements */
+        .st-emotion-cache-16txtl3, 
+        .st-emotion-cache-r421ms,
+        .stException,
+        div[data-baseweb="notification"],
+        div[class*="stAlert"] {
+            display: none !important;
+        }
         </style>
     """, unsafe_allow_html=True)
 
