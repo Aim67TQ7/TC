@@ -19,11 +19,6 @@ def main():
 
     uploaded_file = st.file_uploader("", type=["pdf", "docx", "txt"])
 
-    # Add Start New Analysis button that will clear the session state
-    if st.button("Start New Analysis"):
-        st.session_state.clear()
-        st.rerun()  
-
     if uploaded_file:
         try:
             with st.spinner("Extracting text from document..."):
@@ -32,10 +27,6 @@ def main():
                 if not document_text:
                     st.error("Could not extract text from the document. Please ensure it's a valid file.")
                     return
-
-                # Show document preview
-                with st.expander("Document Preview"):
-                    st.text_area("", document_text[:1000] + "...", height=200)
 
             if st.button("Analyze Document"):
                 with st.spinner("Analyzing document..."):
