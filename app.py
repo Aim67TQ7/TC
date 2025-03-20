@@ -17,6 +17,12 @@ def main():
         </div>
     """, unsafe_allow_html=True)
 
+    # Initialize session state for persistent analysis results
+    if 'analysis_results' not in st.session_state:
+        st.session_state.analysis_results = None
+        st.session_state.document_text = None
+        st.session_state.file_name = None
+    
     uploaded_file = st.file_uploader("", type=["pdf", "docx", "txt"])
 
     if uploaded_file:
@@ -28,11 +34,21 @@ def main():
                     st.error("Could not extract text from the document. Please ensure it's a valid file.")
                     return
 
-            if st.button("Analyze Document"):
+            # Store document text in session state
+            st.session_state.document_text = document_text
+            st.session_state.file_name = uploaded_file.name
+            
+            # Check if we already have analysis results to display
+            if st.session_state.analysis_results is not None:
+                analysis_results = st.session_state.analysis_results
+            elif st.button("Analyze Document"):
                 with st.spinner("Analyzing document..."):
                     try:
                         # Perform analysis
                         analysis_results = analyze_document(document_text)
+                        
+                        # Store in session state
+                        st.session_state.analysis_results = analysis_results
 
                         # Validate analysis results
                         if not analysis_results or not isinstance(analysis_results, dict):
@@ -140,8 +156,10 @@ def main():
                         st.markdown("### Download Reports")
                         col1, col2 = st.columns(2)
                         with col1:
+                            # Use filename from session state or current uploaded file
+                            filename = st.session_state.file_name or uploaded_file.name
                             # Pass filename to PDF generator
-                            pdf_report = generate_pdf_report(analysis_results, filename=uploaded_file.name)
+                            pdf_report = generate_pdf_report(analysis_results, filename=filename)
                             st.download_button(
                                 "Download PDF Report",
                                 pdf_report,
@@ -159,6 +177,10 @@ def main():
                             )
                     except KeyError as ke:
                         st.warning("Processing some parts of the document analysis. Results may be partial.")
+                        # Define analysis_results if it's not already defined
+                        if not locals().get('analysis_results'):
+                            analysis_results = {cat: {'risk_level': 'None', 'findings': 'Not analyzed.', 'quoted_phrases': []} for cat in ANALYSIS_CATEGORIES}
+                            
                         if 'metrics' not in analysis_results:
                             analysis_results['metrics'] = {
                                 'complexity_score': 0.0,

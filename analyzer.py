@@ -173,23 +173,50 @@ def analyze_chunk(text: str) -> Dict[str, Any]:
         - Start each category with ###[Category Name]### exactly as shown
         """
 
-        response = client.messages.create(
-            model="claude-3-5-sonnet-20241022",  # Using the previously working model
-            max_tokens=1500,
-            temperature=0,
-            messages=[{"role": "user", "content": prompt}]
-        )
-
-        if not response or not hasattr(response, 'content') or not response.content:
-            st.error("Invalid response structure from Anthropic API")
-            return {cat: {'risk_level': 'Error', 'findings': 'Invalid response', 'quoted_phrases': []} for cat in ANALYSIS_CATEGORIES}
-
-        content = response.content[0].text if response.content else ""
-        return process_analysis_response(content)
+        # Add retry logic with a wait period
+        max_retries = 3
+        retry_count = 0
+        
+        while retry_count < max_retries:
+            try:
+                response = client.messages.create(
+                    model="claude-3-5-sonnet-20241022",  # Using the previously working model
+                    max_tokens=1500,
+                    temperature=0,
+                    messages=[{"role": "user", "content": prompt}]
+                )
+                
+                if not response or not hasattr(response, 'content') or not response.content:
+                    st.error("Invalid response structure from Anthropic API")
+                    return {cat: {'risk_level': 'Error', 'findings': 'Invalid response', 'quoted_phrases': []} for cat in ANALYSIS_CATEGORIES}
+                
+                content = response.content[0].text if response.content else ""
+                return process_analysis_response(content)
+                
+            except anthropic.RateLimitError as rate_error:
+                # Handle rate limit (429) or overloaded (529) errors
+                if retry_count < max_retries - 1:
+                    st.warning(f"Anthropic API is busy. Retrying in 5 seconds... (Attempt {retry_count + 1}/{max_retries})")
+                    import time
+                    time.sleep(5)  # Wait for 5 seconds before retrying
+                    retry_count += 1
+                else:
+                    st.error("Anthropic API is currently overloaded. Please try again later.")
+                    return {cat: {'risk_level': 'Error', 'findings': 'Anthropic API is currently overloaded. Please try again later.', 'quoted_phrases': []} for cat in ANALYSIS_CATEGORIES}
+            
+            except Exception as e:
+                # For any other error, don't retry but return a result to avoid None return
+                st.error(f"Error analyzing document: {str(e)}")
+                return {cat: {'risk_level': 'Error', 'findings': f'Analysis failed: {str(e)}', 'quoted_phrases': []} for cat in ANALYSIS_CATEGORIES}
 
     except Exception as e:
-        st.error(f"Error analyzing document: {str(e)}")
-        return {cat: {'risk_level': 'Error', 'findings': 'Analysis failed', 'quoted_phrases': []} for cat in ANALYSIS_CATEGORIES}
+        error_message = str(e)
+        if "529" in error_message and "overloaded" in error_message.lower():
+            st.error("Anthropic API is currently overloaded. Please try again later.")
+            return {cat: {'risk_level': 'Error', 'findings': 'Anthropic API is currently overloaded. Please try again later.', 'quoted_phrases': []} for cat in ANALYSIS_CATEGORIES}
+        else:
+            st.error(f"Error analyzing document: {error_message}")
+            return {cat: {'risk_level': 'Error', 'findings': 'Analysis failed', 'quoted_phrases': []} for cat in ANALYSIS_CATEGORIES}
 
 def process_analysis_response(content: str) -> Dict[str, Any]:
     """Process API response and extract structured analysis results."""
