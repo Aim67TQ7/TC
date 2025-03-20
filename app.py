@@ -8,7 +8,7 @@ from styles import apply_custom_styles, show_risk_indicator
 def main():
     apply_custom_styles()
 
-    st.title("AI Analysis of Terms and Conditions")
+    st.title("AI Analysis of T3RMS")
 
     # Add privacy notice
     st.markdown("""
@@ -170,28 +170,14 @@ def main():
                                         st.markdown(f"**Risk Level:** {result['risk_level']} - {risk_explanations[result['risk_level']]}")
 
                         # Download options
-                        st.markdown("### Download Reports")
-                        col1, col2 = st.columns(2)
-                        with col1:
-                            # Use filename from session state or current uploaded file
-                            filename = st.session_state.file_name or uploaded_file.name
-                            # Pass filename to PDF generator
-                            pdf_report = generate_pdf_report(analysis_results, filename=filename)
-                            st.download_button(
-                                "Download PDF Report",
-                                pdf_report,
-                                "tc_analysis_report.pdf",
-                                "application/pdf"
-                            )
-
-                        with col2:
-                            csv_report = generate_csv_report(analysis_results)
-                            st.download_button(
-                                "Download CSV Report",
-                                csv_report,
-                                "tc_analysis_report.csv",
-                                "text/csv"
-                            )
+                        st.markdown("### Download Report")
+                        csv_report = generate_csv_report(analysis_results)
+                        st.download_button(
+                            "Download CSV Report",
+                            csv_report,
+                            "tc_analysis_report.csv",
+                            "text/csv"
+                        )
                     except KeyError as ke:
                         # Completely silent error handling - no visible message to user
                         
